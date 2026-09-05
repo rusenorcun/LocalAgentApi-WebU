@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "yerel-ollama": {
+      "command": "C:\\Project\\LocalAgentApi-WebU - OpenCode\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Project\\LocalAgentApi-WebU - OpenCode\\mcp\\ollama_mcp.py"],
+      "env": {
+        "OLLAMA_HOST": "http://127.0.0.1:11434",
+        "MCP_CHAT_MODEL": "qwen3.6:35b-a3b-q4_K_M",
+        "MCP_REASONER_MODEL": "gpt-oss:120b",
+        "MCP_CODER_MODEL": "qwen3-coder:30b"
+      }
+    }
+  }
+}

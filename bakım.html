@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<title>Bakımda — LocalAgent</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(122,162,255,.10), transparent 60%),
+      radial-gradient(700px 400px at -10% 110%, rgba(99,102,241,.06), transparent 60%),
+      #0e1116;
+    color: #e8eaed;
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .card {
+    text-align: center; padding: 48px 40px; max-width: 420px; margin: 16px;
+    background: #161b22; border: 1px solid #2d3748; border-radius: 16px;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,.35), 0 4px 6px -4px rgba(0,0,0,.35);
+    animation: in .5s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes in { from { opacity: 0; transform: translateY(14px); } }
+  .logo {
+    width: 56px; height: 56px; margin: 0 auto 22px; border-radius: 14px;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  h1 { font-size: 20px; margin: 0 0 10px; font-weight: 600; letter-spacing: -.01em; }
+  p  { color: #8a93a3; font-size: 14px; line-height: 1.625; margin: 0; }
+  .hint {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid #2d3748;
+    font-size: 12px; color: #5c6678; font-family: "JetBrains Mono", "Fira Code", monospace;
+  }
+  .dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: #7aa2ff; margin-right: 6px; animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .card, .logo, .dot { animation: none; } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <svg class="logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#1e1b4b"/>
+          <stop offset="100%" stop-color="#0f0f23"/>
+        </linearGradient>
+        <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#7aa2ff"/>
+          <stop offset="100%" stop-color="#4f6ef7"/>
+        </linearGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="1.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+      <text x="8" y="42" font-family="monospace" font-size="26" font-weight="700" fill="url(#accent)" filter="url(#glow)">›_</text>
+      <g filter="url(#glow)" transform="translate(44, 12)">
+        <path d="M8 0 L9.5 6.5 L16 8 L9.5 9.5 L8 16 L6.5 9.5 L0 8 L6.5 6.5 Z" fill="url(#accent)" opacity="0.95"/>
+        <circle cx="1"  cy="1"  r="1"   fill="#a78bfa" opacity="0.6"/>
+        <circle cx="15" cy="2"  r="0.7" fill="#8b5cf6" opacity="0.5"/>
+        <circle cx="2"  cy="14" r="0.7" fill="#6366f1" opacity="0.4"/>
+      </g>
+    </svg>
+    <h1>Sunucu şu anda dinleniyor</h1>
+    <p>LocalAgent geçici olarak yanıt vermiyor. Bakım kısa sürecek, lütfen birazdan tekrar deneyin.</p>
+    <p class="hint"><span class="dot"></span>bu sayfa otomatik gösterilir — sunucu açıldığında site normale döner</p>
+  </div>
+</body>
+</html>

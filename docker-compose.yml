@@ -1,0 +1,62 @@
+# LocalAgent — Yerel Ollama Sohbet Sunucusu
+#
+# Erişim: agent.rorcun.com → ana makinedeki Caddy → 127.0.0.1:9000 → localagent-app:9000
+#         agent.rorcun.com/mcp → ana makinedeki Caddy → 127.0.0.1:8765 → localagent-app:8765
+#
+# Ollama: Ana makinede (GPU/VRAM) çalışır.
+# Docker konteyneri host.docker.internal üzerinden Ollama'ya bağlanır.
+#
+# MCP HTTP relay (admin panelinden başlat/durdur): FastAPI süreci içinden alt
+# süreç olarak tetiklenir (server/services/mcp_manager.py). Container içinde
+# 0.0.0.0:8765 dinler (MCP_BIND_HOST) ki host'taki Caddy oraya ulaşabilsin;
+# panel/healthz her zaman 127.0.0.1 üzerinden konuşmaya devam eder.
+#
+# Komutlar:
+#   docker compose up -d --build     başlat (derler ve arka planda çalıştırır)
+#   docker compose logs -f           günlükleri izle
+#   docker compose down              durdur (veriler data/ klasöründe kalır)
+
+name: localagent
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: localagent-app
+    restart: unless-stopped
+    ports:
+      # Yalnızca loopback: dış dünyaya sadece Caddy bakar.
+      - "127.0.0.1:9000:9000"
+      # MCP HTTP relay (panelden başlatılınca): aynı sebeple yalnızca loopback.
+      - "127.0.0.1:8765:8765"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9000
+      - DATA_DIR=/app/data
+      # Ollama ana makinede çalışır; container içinden host gateway ile erişilir:
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - JWT_SECRET=${JWT_SECRET}
+      - MODEL_NAME=${MODEL_NAME:-qwen3.6:35b-a3b-q4_K_M}
+      - NUM_CTX=${NUM_CTX:-8192}
+      - MAX_CHAT_TOKENS=${MAX_CHAT_TOKENS:-250000}
+      - IMAGE_TO_TEXT=${IMAGE_TO_TEXT:-true}
+      - CAPTION_MODEL=${CAPTION_MODEL:-qwen3-vl:8b}
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-false}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      # MCP relay alt sureci container icinde 0.0.0.0'da dinlesin ki yukaridaki
+      # port yayinlamasi calissin (127.0.0.1 container-local kalir, disaridan
+      # erisilemez). Panel/healthz bundan etkilenmez, her zaman 127.0.0.1 kullanir.
+      - MCP_BIND_HOST=${MCP_BIND_HOST:-0.0.0.0}
+    env_file:
+      - .env
+    extra_hosts:
+      # Linux Docker container'ının Windows host'taki Ollama'ya (11434) ulaşabilmesi için:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Sohbetler, kullanıcılar ve SQLite veritabanı kalıcı olarak ana makinede tutulur:
+      - ./data:/app/data
+      # MCP relay kodu + .mcp_token: host'taki mcp/ klasörünü bindler ki
+      # token, imaj yeniden derlense bile kalıcı kalsın (mcp_http_baslat.bat
+      # ile de AYNI dosyayı paylaşır).
+      - ./mcp:/app/mcp

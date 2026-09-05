@@ -1,0 +1,7 @@
+{
+  "NUM_CTX": 16384,
+  "MAX_CHAT_TOKENS": 250000,
+  "ENABLE_COMPACTION": true,
+  "ALLOW_REGISTRATION": false,
+  "IMAGE_TO_TEXT": false
+}

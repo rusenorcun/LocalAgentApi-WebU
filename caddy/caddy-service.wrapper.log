@@ -1,0 +1,62 @@
+2026-08-25 21:28:23,302 DEBUG - Starting WinSW in console mode
+2026-08-25 21:28:23,315 INFO  - Installing service 'Caddy Reverse Proxy (Caddy)'...
+2026-08-25 21:28:23,334 INFO  - Service 'Caddy Reverse Proxy (Caddy)' was installed successfully.
+2026-08-25 21:28:23,429 DEBUG - Starting WinSW in console mode
+2026-08-25 21:28:23,437 INFO  - Starting service 'Caddy Reverse Proxy (Caddy)'...
+2026-08-25 21:28:23,527 DEBUG - Starting WinSW in service mode
+2026-08-25 21:28:23,539 INFO  - Service 'Caddy Reverse Proxy (Caddy)' started successfully.
+2026-08-25 21:28:23,544 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-08-25 21:28:23,783 INFO  - Started process 33932
+2026-08-25 21:28:23,793 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-08-26 02:12:06,219 DEBUG - Starting WinSW in service mode
+2026-08-26 02:12:06,257 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-08-26 02:12:06,498 INFO  - Started process 5448
+2026-08-26 02:12:06,502 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-08-27 00:58:33,625 DEBUG - Starting WinSW in service mode
+2026-08-27 00:58:33,668 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-08-27 00:58:33,907 INFO  - Started process 7360
+2026-08-27 00:58:33,911 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-08-27 13:42:31,151 DEBUG - Starting WinSW in service mode
+2026-08-27 13:42:31,194 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-08-27 13:42:31,418 INFO  - Started process 6896
+2026-08-27 13:42:31,424 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-08-29 12:45:38,229 INFO  - Stopping Caddy
+2026-08-29 12:45:38,233 DEBUG - ProcessKill 6896
+2026-08-29 12:45:38,262 DEBUG - Stopping process 6896...
+2026-08-29 12:45:38,291 DEBUG - Process 6896 canceled with code 0.
+2026-08-29 12:45:38,305 INFO  - Finished Caddy
+2026-08-29 12:46:19,123 DEBUG - Starting WinSW in service mode
+2026-08-29 12:46:19,164 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-08-29 12:46:19,399 INFO  - Started process 6752
+2026-08-29 12:46:19,402 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-08-29 18:12:17,379 DEBUG - Starting WinSW in service mode
+2026-08-29 18:12:17,416 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-08-29 18:12:17,657 INFO  - Started process 7080
+2026-08-29 18:12:17,660 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-09-02 10:26:11,263 INFO  - Stopping Caddy
+2026-09-02 10:26:11,264 DEBUG - ProcessKill 7080
+2026-09-02 10:26:11,278 DEBUG - Stopping process 7080...
+2026-09-02 10:26:11,310 DEBUG - Process 7080 canceled with code 0.
+2026-09-02 10:26:11,342 INFO  - Finished Caddy
+2026-09-02 10:26:57,415 DEBUG - Starting WinSW in service mode
+2026-09-02 10:26:57,453 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-09-02 10:26:57,679 INFO  - Started process 6556
+2026-09-02 10:26:57,688 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-09-03 13:05:46,739 INFO  - Stopping Caddy
+2026-09-03 13:05:46,739 DEBUG - ProcessKill 6556
+2026-09-03 13:05:46,755 DEBUG - Stopping process 6556...
+2026-09-03 13:05:46,819 DEBUG - Process 6556 canceled with code 0.
+2026-09-03 13:05:46,835 INFO  - Finished Caddy
+2026-09-03 13:06:32,522 DEBUG - Starting WinSW in service mode
+2026-09-03 13:06:32,560 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-09-03 13:06:32,782 INFO  - Started process 6300
+2026-09-03 13:06:32,787 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender
+2026-09-04 18:34:23,212 INFO  - Stopping Caddy
+2026-09-04 18:34:23,212 DEBUG - ProcessKill 6300
+2026-09-04 18:34:23,232 DEBUG - Stopping process 6300...
+2026-09-04 18:34:23,290 DEBUG - Process 6300 canceled with code 0.
+2026-09-04 18:34:23,306 INFO  - Finished Caddy
+2026-09-04 18:35:10,261 DEBUG - Starting WinSW in service mode
+2026-09-04 18:35:10,299 INFO  - Starting C:\Project\LocalAgentApi-WebU - OpenCode\caddy\caddy.exe run --config "C:\Project\LocalAgentApi-WebU - OpenCode\caddy\Caddyfile"
+2026-09-04 18:35:10,554 INFO  - Started process 6580
+2026-09-04 18:35:10,565 DEBUG - Forwarding logs of the process System.Diagnostics.Process (caddy) to WinSW.SizeBasedRollingLogAppender

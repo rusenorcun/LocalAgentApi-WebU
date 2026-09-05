@@ -1,0 +1,14 @@
+[
+  {
+    "id": "befe1d8f-84fc-40ff-a651-3a6dace4d06d",
+    "name": "ev-ollama",
+    "base_url": "http://127.0.0.1:11434",
+    "api_key": "ollama-key",
+    "is_default": true,
+    "enabled": true,
+    "is_local": false,
+    "notes": null,
+    "last_seen_ok": null,
+    "models": []
+  }
+]

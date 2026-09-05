@@ -1,0 +1,117 @@
+# Caddyfile — rorcun.com + kitap.rorcun.com
+#
+# Bu dosya ANA MAKİNEDE çalışan caddy.exe içindir (Docker'daki Caddy DEĞİL).
+# Mevcut Caddyfile'ının yerine bunu koyabilirsin: eski içeriğin aynen korundu,
+# üzerine iki değişiklik yapıldı:
+#
+#   1. kitap.rorcun.com bloğu eklendi (KİTAPLA konteynerine yönlendirir)
+#   2. Tarama engeli düzeltildi — ayrıntı aşağıda
+#
+# Çalıştırma (yönetici CMD, bu dosyanın olduğu klasörde):
+#   caddy run --config Caddyfile
+#
+# NOT: Bu klasör artık Windows servisi olarak da çalışıyor (servis adı: Caddy).
+# Sertifika deposu aşağıdaki global blokla bu klasördeki data\ altına sabitlendi;
+# böylece elle başlatma ile servis arasında depo farkı doğmaz.
+
+{
+	storage file_system {
+		root "C:/Project/LocalAgentApi-WebU - OpenCode/caddy/data"
+	}
+}
+
+rorcun.com, www.rorcun.com {
+	encode gzip
+
+	# Bilinen tarama yolları doğrudan 404.
+	#
+	# DÜZELTME: Bu kural daha önce dosyanın altında "respond @scanners 404"
+	# olarak duruyordu ve HİÇ ÇALIŞMIYORDU. Caddy yönergeleri yazıldıkları
+	# sırayla değil, kendi öntanımlı sırasına göre işler; "handle" yönergesi
+	# "respond"dan önce gelir. Bu yüzden aşağıdaki catch-all handle bloğu
+	# istekleri yakalayıp FastAPI'ye gönderiyor, 404 satırına hiç ulaşılmıyordu.
+	# Kuralı bir "handle" bloğuna alıp catch-all'dan ÖNCE koymak sorunu çözer.
+	@scanners path /wp-admin* /wp-login* /.env* /.git* /phpmyadmin* /xmlrpc.php
+	handle @scanners {
+		respond 404
+	}
+
+	# MCP HTTP (Bearer token korumalı, bkz. mcp/README.md) — yalnızca bu yolu
+	# yerel :8765'teki MCP sunucusuna yönlendirir. Token doğrulaması uygulama
+	# katmanında yapılır; 8765 hiçbir zaman dışarı açılmaz.
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		reverse_proxy 127.0.0.1:8765
+	}
+
+	# FastAPI backend (yalnızca localhost dinler) — geri kalan her şey
+	handle {
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	# Dosya yükleme sınırı (uygulamadaki MAX_UPLOAD_MB=40 ile uyumlu)
+	request_body {
+		max_size 50MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Backend kapalıyken ham 502 yerine bakım sayfası
+	handle_errors 502 503 504 {
+		root * "C:\Project\LocalAgentApi-WebU - OpenCode"
+		rewrite * /bakım.html
+		file_server
+	}
+}
+
+# ---------------------------------------------------------------------------
+# YENİ: KİTAPLA — Docker konteynerinde çalışır, yalnızca 127.0.0.1:8080 dinler
+# ---------------------------------------------------------------------------
+kitap.rorcun.com {
+	encode zstd gzip
+
+	# Tarama yolları önce elensin (catch-all handle'dan ÖNCE gelmeli)
+	@scanners path /wp-admin* /wp-login* /.env* /.git* /phpmyadmin* /xmlrpc.php
+	handle @scanners {
+		respond 404
+	}
+
+	# Geri kalan her şey KİTAPLA konteynerine
+	handle {
+		reverse_proxy 127.0.0.1:8080 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Öğrenci belgesi ve kapak yüklemesi (uygulama sınırı 5MB, pay bırakıldı)
+	request_body {
+		max_size 10MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		-Server
+	}
+
+	# Statik varlıklar önbelleklenebilir. ">" ertelenmiş kümeleme: uygulama her
+	# yanıta no-store eklediği için düz "header" iki çakışan Cache-Control
+	# bırakıyor ve tarayıcı no-store'u seçiyor.
+	@statik path /css/* /js/* /webjars/* /uploads/covers/*
+	header @statik >Cache-Control "public, max-age=604800"
+
+	# Konteyner kapalıyken anlaşılır bir sayfa
+	handle_errors 502 503 504 {
+		respond "KITAPLA su an kapali. Birazdan tekrar deneyin." 503
+	}
+}

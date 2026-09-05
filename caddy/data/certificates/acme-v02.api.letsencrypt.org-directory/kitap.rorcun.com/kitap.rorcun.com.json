@@ -1,0 +1,19 @@
+{
+	"sans": [
+		"kitap.rorcun.com"
+	],
+	"issuer_data": {
+		"url": "https://acme-v02.api.letsencrypt.org/acme/cert/0659d893b0a2e180811ca28a2854a618b8f0",
+		"ca": "https://acme-v02.api.letsencrypt.org/directory",
+		"account": "https://acme-v02.api.letsencrypt.org/acme/acct/3496609491",
+		"renewal_info": {
+			"suggestedWindow": {
+				"start": "2026-10-21T23:42:00Z",
+				"end": "2026-10-23T18:52:50Z"
+			},
+			"_uniqueIdentifier": "uyDKRwv-1-Wc-Y8JKqOMN0WxvNg.BlnYk7Ci4YCBHKKKKFSmGLjw",
+			"_retryAfter": "2026-09-05T14:51:22.8526554+03:00",
+			"_selectedTime": "2026-10-22T12:33:17Z"
+		}
+	}
+}

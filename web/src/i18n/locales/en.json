@@ -1,0 +1,254 @@
+{
+  "app": {
+    "title": "LocalAgent",
+    "loading": "Loading...",
+    "appName": "LocalAgent"
+  },
+  "auth": {
+    "login": "Sign In",
+    "register": "Sign Up",
+    "username": "Username",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "loginTitle": "Welcome back",
+    "registerTitle": "Create an account",
+    "switchToRegister": "No account? For sign up, contact your server owner",
+    "switchToLogin": "Already have an account? Sign in",
+    "loggingIn": "Signing in...",
+    "registering": "Creating account...",
+    "logout": "Sign Out",
+    "passwordStrength": "Password strength",
+    "weakPassword": "Weak",
+    "fairPassword": "Fair",
+    "strongPassword": "Strong",
+    "veryStrongPassword": "Very strong",
+    "errors": {
+      "invalidUsername": "Invalid username (3-32, letters/numbers/._-)",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "passwordMismatch": "Passwords don't match"
+    },
+    "subtitleLogin": "Sign in to your LocalAgent panel",
+    "subtitleRegister": "Create your LocalAgent account"
+  },
+  "chat": {
+    "newChat": "New Chat",
+    "search": "Search chats...",
+    "noChats": "No chats yet",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "older": "Older",
+    "pinChat": "Pin",
+    "unpinChat": "Unpin",
+    "renameChat": "Rename",
+    "deleteChat": "Delete Chat",
+    "chatDeleted": "Chat deleted",
+    "undo": "Undo",
+    "thinking": "Thinking...",
+    "thinkingLive": "Thinking… {{s}}s",
+    "thinkingProcess": "Thought process",
+    "thinkingDuration": "Thought for {{s}}s",
+    "activityTitle": "What's happening",
+    "generating": "Generating response...",
+    "stop": "Stop",
+    "regenerate": "Regenerate",
+    "edit": "Edit",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "rawMarkdown": "Raw Markdown",
+    "queuePosition": "{{count}} requests ahead",
+    "tokenBudget": "{{used}}/{{max}} tokens",
+    "tokenWarning": "Approaching token limit. Consider opening a new chat.",
+    "tokenFull": "Token limit reached. Open a new chat.",
+    "composer": {
+      "placeholder": "Write a message…",
+      "send": "Send",
+      "attach": "Attach file",
+      "attachFile": "Attach File",
+      "dropFile": "Drop file here",
+      "saveDraft": "Draft saved",
+      "fileTooBig": "File too large (max {{max}}MB)",
+      "uploading": "Uploading..."
+    },
+    "source": "Source",
+    "sources": "Sources",
+    "model": "Model",
+    "changeModel": "Change model",
+    "compact": "Compact",
+    "compacting": "Compacting...",
+    "compactHint": "Folds older messages into a running summary to shrink the context window",
+    "quickSettings": {
+      "title": "Quick Settings",
+      "chatModel": "Chat Model",
+      "visionModel": "Vision Model",
+      "genParams": "Generation Parameters",
+      "reset": "Reset",
+      "resetTitle": "Reset to defaults",
+      "numCtx": "Context window",
+      "numPredict": "Response length",
+      "temperature": "Creativity",
+      "topP": "Diversity",
+      "vramWarn": "High values slow down / may cause VRAM issues",
+      "captionModel": "Caption (Vision) Model",
+      "captionHint": "Uploaded images are transcribed to text with this model.",
+      "persona": "Persona / System Prompt",
+      "personaPlaceholder": "The model's role/rules for this chat (e.g. 'Act as a senior Python mentor')…"
+    },
+    "tokenInfo": {
+      "used": "used",
+      "contextWindow": "Context window",
+      "vramWarn": "High values may slow response / cause VRAM issues",
+      "settingsHint": "Click the settings icon in the top right for other parameters"
+    },
+    "status": {
+      "summarized": "History summarized",
+      "uploading": "Uploading...",
+      "fileReady": "File ready",
+      "connectionError": "Connection error",
+      "uploadError": "Upload error",
+      "uploadFailed": "File upload failed"
+    },
+    "webSearch": "Web search",
+    "sidebar": {
+      "extractSummary": "Extract Summary",
+      "select": "Select",
+      "moveToProject": "Move to Project",
+      "selected": "{{count}} selected",
+      "summarizeAll": "Summarize All",
+      "multiSelect": "Multi-Select / Summarize",
+      "member": "Member"
+    },
+    "welcome": {
+      "title": "How can I help you?",
+      "subtitle": "Start a new chat.",
+      "createFailed": "Failed to create chat",
+      "summaryCount": "Summary count",
+      "badge": "Local · Private · On your hardware"
+    },
+    "attachment": {
+      "images": "image(s)",
+      "chars": "chars of text",
+      "longDocWarn": "Document contains many images. Processing may take a while. Contact the server owner if you encounter an error."
+    },
+    "modelSelector": {
+      "visionBadge": "Vision-capable model"
+    },
+    "deleted": "Chat deleted",
+    "noResults": "No results",
+    "groups": {
+      "pinned": "Pinned",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This Week",
+      "older": "Older"
+    },
+    "summaries": {
+      "title": "Summaries",
+      "transferTo": "Transfer to chat",
+      "delete": "Delete",
+      "noChats": "No chats",
+      "sources": "sources"
+    },
+    "knowledgeBase": "Knowledge Base"
+  },
+  "model": {
+    "selector": "Select model",
+    "default": "Set as default",
+    "speed": "Speed",
+    "strengths": "Strengths",
+    "reasoning": "Reasoning",
+    "code": "Code",
+    "longContext": "Long Context",
+    "general": "General",
+    "math": "Math",
+    "vision": "Vision"
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "users": "Users",
+    "models": "Models",
+    "stats": "Statistics",
+    "audit": "Audit Log",
+    "settings": "Settings",
+    "system": "System",
+    "userActions": {
+      "lock": "Lock",
+      "unlock": "Unlock",
+      "makeAdmin": "Make Admin",
+      "removeAdmin": "Remove Admin",
+      "delete": "Delete",
+      "revokeSessions": "Revoke Sessions"
+    },
+    "totalUsers": "Total Users",
+    "totalChats": "Total Chats",
+    "totalMessages": "Total Messages",
+    "activeUsers": "Active Users",
+    "messages24h": "Messages (24h)",
+    "messages7d": "Messages (7d)"
+  },
+  "commands": {
+    "placeholder": "Search commands or chats...",
+    "newChat": "New Chat",
+    "searchChats": "Search Chats",
+    "changeModel": "Change Model",
+    "toggleTheme": "Toggle Theme",
+    "openAdmin": "Admin Panel",
+    "logout": "Sign Out"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "choose": "Choose Theme"
+  },
+  "lang": {
+    "tr": "Turkish",
+    "en": "English",
+    "choose": "Choose Language"
+  },
+  "onboarding": {
+    "welcome": "Welcome!",
+    "step1": "Choose your theme",
+    "step2": "Choose your language",
+    "continue": "Continue",
+    "finish": "Get Started"
+  },
+  "errors": {
+    "networkError": "Connection error. Is the server running?",
+    "unauthorized": "Session expired. Please sign in again.",
+    "serverError": "Server error. Please try again.",
+    "unknown": "An unknown error occurred."
+  },
+  "palette": {
+    "placeholder": "Search chats, change model…",
+    "newChat": "New Chat",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "noResults": "No results found"
+  },
+  "settings": {
+    "theme": "Theme",
+    "language": "Language",
+    "changePassword": "Change Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "passwordChanged": "Password changed successfully!",
+    "passwordMismatch": "Passwords don't match",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "save": "Save",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "title": "Personalization",
+    "back": "Back",
+    "persona": "Persona (all chats)",
+    "personaHint": "Personal instruction/character applied to all chats. Per-chat persona is added on top.",
+    "personaPlaceholder": "e.g. 'Answer briefly and technically; speak Turkish; no fluff.'",
+    "saved": "Saved",
+    "personalization": "Personalization",
+    "navPersona": "Persona",
+    "navPassword": "Password",
+    "navSystem": "System"
+  }
+}

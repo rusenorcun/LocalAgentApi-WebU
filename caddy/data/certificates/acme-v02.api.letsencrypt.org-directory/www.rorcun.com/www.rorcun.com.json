@@ -1,0 +1,19 @@
+{
+	"sans": [
+		"www.rorcun.com"
+	],
+	"issuer_data": {
+		"url": "https://acme-v02.api.letsencrypt.org/acme/cert/055f04a189cc738bb8c2cc55d4addb188a7f",
+		"ca": "https://acme-v02.api.letsencrypt.org/directory",
+		"account": "https://acme-v02.api.letsencrypt.org/acme/acct/3496609491",
+		"renewal_info": {
+			"suggestedWindow": {
+				"start": "2026-10-29T19:37:57Z",
+				"end": "2026-10-31T14:48:46Z"
+			},
+			"_uniqueIdentifier": "uyDKRwv-1-Wc-Y8JKqOMN0WxvNg.BV8EoYnMc4u4wsxV1K3bGIp_",
+			"_retryAfter": "2026-09-05T16:06:12.0569427+03:00",
+			"_selectedTime": "2026-10-30T16:20:26Z"
+		}
+	}
+}

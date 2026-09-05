@@ -1,0 +1,254 @@
+{
+  "app": {
+    "title": "LocalAgent",
+    "loading": "Yükleniyor...",
+    "appName": "LocalAgent"
+  },
+  "auth": {
+    "login": "Giriş Yap",
+    "register": "Kayıt Ol",
+    "username": "Kullanıcı Adı",
+    "password": "Şifre",
+    "confirmPassword": "Şifreyi Onayla",
+    "loginTitle": "Tekrar hoş geldiniz",
+    "registerTitle": "Hesap oluştur",
+    "switchToRegister": "Hesabınız yok mu? Kayıt olmak için sunucu sahibi ile iletişime geçin",
+    "switchToLogin": "Zaten hesabınız var mı? Giriş yapın",
+    "loggingIn": "Giriş yapılıyor...",
+    "registering": "Kaydediliyor...",
+    "logout": "Çıkış Yap",
+    "passwordStrength": "Şifre güvenliği",
+    "weakPassword": "Zayıf",
+    "fairPassword": "Orta",
+    "strongPassword": "Güçlü",
+    "veryStrongPassword": "Çok güçlü",
+    "errors": {
+      "invalidUsername": "Geçersiz kullanıcı adı (3-32, harf/rakam/._-)",
+      "passwordTooShort": "Şifre en az 8 karakter olmalı",
+      "passwordMismatch": "Şifreler eşleşmiyor"
+    },
+    "subtitleLogin": "LocalAgent paneline giriş yap",
+    "subtitleRegister": "LocalAgent hesabı oluştur"
+  },
+  "chat": {
+    "newChat": "Yeni Sohbet",
+    "search": "Sohbet ara...",
+    "noChats": "Henüz sohbet yok",
+    "today": "Bugün",
+    "yesterday": "Dün",
+    "thisWeek": "Bu Hafta",
+    "older": "Daha Eski",
+    "pinChat": "Sabitle",
+    "unpinChat": "Sabitliği Kaldır",
+    "renameChat": "Yeniden Adlandır",
+    "deleteChat": "Sohbeti Sil",
+    "chatDeleted": "Sohbet silindi",
+    "undo": "Geri Al",
+    "thinking": "Düşünüyor...",
+    "thinkingLive": "Düşünüyor… {{s}} sn",
+    "thinkingProcess": "Düşünme süreci",
+    "thinkingDuration": "{{s}} sn düşündü",
+    "activityTitle": "Neler oluyor",
+    "generating": "Yanıt üretiliyor...",
+    "stop": "Durdur",
+    "regenerate": "Yeniden Üret",
+    "edit": "Düzenle",
+    "copy": "Kopyala",
+    "copied": "Kopyalandı!",
+    "rawMarkdown": "Ham Markdown",
+    "queuePosition": "Önünde {{count}} istek var",
+    "tokenBudget": "{{used}}/{{max}} token",
+    "tokenWarning": "Token limitine yaklaşıldı. Yeni sohbet açmayı düşünün.",
+    "tokenFull": "Token limiti doldu. Yeni sohbet açın.",
+    "composer": {
+      "placeholder": "Mesaj yaz…",
+      "send": "Gönder",
+      "attach": "Dosya ekle",
+      "attachFile": "Dosya Ekle",
+      "dropFile": "Dosyayı buraya bırak",
+      "saveDraft": "Taslak kaydedildi",
+      "fileTooBig": "Dosya çok büyük (maks {{max}}MB)",
+      "uploading": "Yükleniyor..."
+    },
+    "source": "Kaynak",
+    "sources": "Kaynaklar",
+    "model": "Model",
+    "changeModel": "Model değiştir",
+    "compact": "Özetle",
+    "compacting": "Özetleniyor...",
+    "compactHint": "Eski mesajları sürekli özete katarak bağlam penceresini küçültür",
+    "quickSettings": {
+      "title": "Hızlı Ayarlar",
+      "chatModel": "Sohbet Modeli",
+      "visionModel": "Görü (Vision) Modeli",
+      "genParams": "Üretim Parametreleri",
+      "reset": "Sıfırla",
+      "resetTitle": "Varsayılanlara dön",
+      "numCtx": "Bağlam penceresi",
+      "numPredict": "Yanıt uzunluğu",
+      "temperature": "Yaratıcılık",
+      "topP": "Çeşitlilik",
+      "vramWarn": "Yüksek değer yavaşlatır / VRAM sorununa yol açabilir",
+      "captionModel": "Caption (Görü) Modeli",
+      "captionHint": "Yüklenen görseller bu modelle metne dökülür.",
+      "persona": "Persona / Sistem Promptu",
+      "personaPlaceholder": "Modelin bu sohbetteki rolü/kuralları (örn. 'Kıdemli Python mentoru gibi davran')…"
+    },
+    "tokenInfo": {
+      "used": "kullanıldı",
+      "contextWindow": "Bağlam penceresi",
+      "vramWarn": "Yüksek değerler yanıt süresini uzatabilir / VRAM sorununa yol açabilir",
+      "settingsHint": "Diğer parametreler için sağ üst köşedeki ayarlar ikonuna tıkla"
+    },
+    "status": {
+      "summarized": "Geçmiş özetlendi",
+      "uploading": "Sunucuya gönderiliyor",
+      "fileReady": "Dosya hazır",
+      "connectionError": "Bağlantı hatası",
+      "uploadError": "Yükleme hatası",
+      "uploadFailed": "Dosya yüklenemedi"
+    },
+    "webSearch": "Web araması",
+    "sidebar": {
+      "extractSummary": "Özet Çıkart",
+      "select": "Seç",
+      "moveToProject": "Projeye Taşı",
+      "selected": "{{count}} seçildi",
+      "summarizeAll": "Hepsini Özetle",
+      "multiSelect": "Çoklu Seçim / Özetle",
+      "member": "Üye"
+    },
+    "welcome": {
+      "title": "Nasıl yardımcı olabilirim?",
+      "subtitle": "Yeni bir sohbet başlatın.",
+      "createFailed": "Sohbet oluşturulamadı",
+      "summaryCount": "Özetlenme sayısı",
+      "badge": "Yerel · Gizli · Senin donanımında"
+    },
+    "attachment": {
+      "images": "görsel",
+      "chars": "karakter metin",
+      "longDocWarn": "Belge çok fazla görsel içeriyor, işleme uzun sürebilir. Hata alırsanız sunucu sahibiyle iletişime geçin."
+    },
+    "modelSelector": {
+      "visionBadge": "Görüntü anlama (vision)"
+    },
+    "deleted": "Sohbet silindi",
+    "noResults": "Sonuç bulunamadı",
+    "groups": {
+      "pinned": "Sabitlenmiş",
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "thisWeek": "Bu Hafta",
+      "older": "Daha Eski"
+    },
+    "summaries": {
+      "title": "Özetler",
+      "transferTo": "Sohbete Aktar",
+      "delete": "Sil",
+      "noChats": "Sohbet yok",
+      "sources": "kaynak"
+    },
+    "knowledgeBase": "Bilgi Tabanı"
+  },
+  "model": {
+    "selector": "Model seç",
+    "default": "Varsayılan yap",
+    "speed": "Hız",
+    "strengths": "Güçlü Yanlar",
+    "reasoning": "Muhakeme",
+    "code": "Kod",
+    "longContext": "Uzun Bağlam",
+    "general": "Genel",
+    "math": "Matematik",
+    "vision": "Görsel"
+  },
+  "admin": {
+    "title": "Admin Paneli",
+    "users": "Kullanıcılar",
+    "models": "Modeller",
+    "stats": "İstatistikler",
+    "audit": "Audit Log",
+    "settings": "Ayarlar",
+    "system": "Sistem",
+    "userActions": {
+      "lock": "Kilitle",
+      "unlock": "Kilidi Aç",
+      "makeAdmin": "Admin Yap",
+      "removeAdmin": "Adminliği Kaldır",
+      "delete": "Sil",
+      "revokeSessions": "Oturumları Sonlandır"
+    },
+    "totalUsers": "Toplam Kullanıcı",
+    "totalChats": "Toplam Sohbet",
+    "totalMessages": "Toplam Mesaj",
+    "activeUsers": "Aktif Kullanıcı",
+    "messages24h": "Son 24 Saat Mesaj",
+    "messages7d": "Son 7 Gün Mesaj"
+  },
+  "commands": {
+    "placeholder": "Komut veya sohbet ara...",
+    "newChat": "Yeni Sohbet",
+    "searchChats": "Sohbetlerde Ara",
+    "changeModel": "Model Değiştir",
+    "toggleTheme": "Tema Değiştir",
+    "openAdmin": "Admin Paneli",
+    "logout": "Çıkış Yap"
+  },
+  "theme": {
+    "light": "Açık",
+    "dark": "Koyu",
+    "system": "Sistem",
+    "choose": "Tema Seçin"
+  },
+  "lang": {
+    "tr": "Türkçe",
+    "en": "İngilizce",
+    "choose": "Dil Seçin"
+  },
+  "onboarding": {
+    "welcome": "Hoş Geldiniz!",
+    "step1": "Tema tercihini seç",
+    "step2": "Dil tercihini seç",
+    "continue": "Devam Et",
+    "finish": "Başla"
+  },
+  "errors": {
+    "networkError": "Bağlantı hatası. Sunucu çalışıyor mu?",
+    "unauthorized": "Oturum süresi doldu. Lütfen tekrar giriş yapın.",
+    "serverError": "Sunucu hatası. Lütfen tekrar deneyin.",
+    "unknown": "Bilinmeyen bir hata oluştu."
+  },
+  "palette": {
+    "placeholder": "Sohbet ara, model değiştir…",
+    "newChat": "Yeni Sohbet",
+    "lightMode": "Aydınlık Tema",
+    "darkMode": "Karanlık Tema",
+    "noResults": "Sonuç bulunamadı"
+  },
+  "settings": {
+    "theme": "Tema",
+    "language": "Dil",
+    "changePassword": "Şifre Değiştir",
+    "currentPassword": "Mevcut şifre",
+    "newPassword": "Yeni şifre",
+    "confirmPassword": "Şifreyi tekrarla",
+    "passwordChanged": "Şifre başarıyla değiştirildi!",
+    "passwordMismatch": "Şifreler eşleşmiyor",
+    "passwordTooShort": "Şifre en az 8 karakter olmalı",
+    "save": "Kaydet",
+    "light": "Açık",
+    "dark": "Koyu",
+    "system": "Sistem",
+    "title": "Kişiselleştirme",
+    "back": "Geri",
+    "persona": "Persona (tüm sohbetler)",
+    "personaHint": "Tüm sohbetlerde geçerli kişisel talimat/karakter. Sohbete özel persona buna eklenir.",
+    "personaPlaceholder": "örn. 'Kısa ve teknik yanıt ver, Türkçe konuş, gereksiz açıklama yapma.'",
+    "saved": "Kaydedildi",
+    "personalization": "Kişiselleştirme",
+    "navPersona": "Persona",
+    "navPassword": "Şifre",
+    "navSystem": "Sistem"
+  }
+}
