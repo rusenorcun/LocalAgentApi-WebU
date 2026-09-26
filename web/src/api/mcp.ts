@@ -12,6 +12,7 @@ export interface McpStatus {
   url: string
   token_masked: string
   token_file: string
+  default_connection: string
 }
 
 export interface ToolInfo {

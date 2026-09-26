@@ -23,13 +23,17 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from httpx import Timeout
+from starlette.background import BackgroundTask
 
 from .. import config
 from ..auth_v2 import require_admin
 from ..database import User
+from ..services import model_gate
 
 # Ollama proxy için timeout: uzun üretimler/streaming göz önünde bulunduruldu.
 _PROXY_TIMEOUT = Timeout(connect=10.0, read=3600.0, write=60.0, pool=10.0)
+# Modeli belleğe yükleyen uçlar — keep_alive bunlarda API tavanına kırpılır.
+_MODEL_RUN_PATHS = {"api/chat", "api/generate", "api/embed", "api/embeddings"}
 
 router = APIRouter(prefix="/api/v2/ollama/proxy", tags=["ollama_proxy"])
 
@@ -104,28 +108,58 @@ async def ollama_proxy(
     method = request.method
     body, ct = await _read_request_body(request)
 
+    # API istisnasi: sirali yukleme kapisini beklemez; keep_alive API tavanina
+    # kirpilir ve model istek suresince "API'de aktif" sayilir (bosaltilmaz).
+    model = None
+    if method == "POST" and body and path.strip("/") in _MODEL_RUN_PATHS:
+        try:
+            data = json.loads(body)
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            model = data.get("model") or data.get("name")
+            data["keep_alive"] = model_gate.api_keep_alive(data.get("keep_alive"))
+            if path.strip("/") in ("api/chat", "api/generate"):
+                from .ollama_connections import effective_num_ctx
+                ctx = effective_num_ctx(conn)
+                opts = data.get("options") if isinstance(data.get("options"), dict) else {}
+                if ctx > 0 and not opts.get("num_ctx"):
+                    data["options"] = opts | {"num_ctx": ctx}
+            body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    lease = model_gate.ApiLease(model)
+
+    # Client, yanit akisi bitene kadar ACIK kalmali; akis sonunda kapatilir.
+    client = httpx.AsyncClient(timeout=_PROXY_TIMEOUT, follow_redirects=False)
     try:
-        async with httpx.AsyncClient(timeout=_PROXY_TIMEOUT, follow_redirects=False) as client:
-            req = client.build_request(
-                method=method,
-                url=target_url,
-                headers=forward_headers,
-                content=body if body else None,
-            )
-            r = await client.send(req, stream=True)
+        req = client.build_request(
+            method=method,
+            url=target_url,
+            headers=forward_headers,
+            content=body if body else None,
+        )
+        r = await client.send(req, stream=True)
+    except BaseException as e:
+        lease.release()
+        await client.aclose()
+        if isinstance(e, httpx.ConnectError):
+            raise HTTPException(status_code=502, detail=f"Ollama'ya bağlanılamadı: {e}")
+        if isinstance(e, httpx.TimeoutException):
+            raise HTTPException(status_code=504, detail="Ollama yanıt vermedi (zaman aşımı).")
+        raise
 
-            async def stream_response():
-                async for chunk in r.aiter_raw():
-                    yield chunk
-                await r.aclose()
+    async def stream_response():
+        try:
+            async for chunk in r.aiter_raw():
+                yield chunk
+        finally:
+            lease.release()
+            await r.aclose()
+            await client.aclose()
 
-            return StreamingResponse(
-                stream_response(),
-                status_code=r.status_code,
-                headers=dict(r.headers),
-                media_type=r.headers.get("content-type"),
-            )
-    except httpx.ConnectError as e:
-        raise HTTPException(status_code=502, detail=f"Ollama'ya bağlanılamadı: {e}")
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Ollama yanıt vermedi (zaman aşımı).")
+    return StreamingResponse(
+        stream_response(),
+        status_code=r.status_code,
+        headers=dict(r.headers),
+        media_type=r.headers.get("content-type"),
+        background=BackgroundTask(lease.release),  # akis hic baslamazsa da birak
+    )

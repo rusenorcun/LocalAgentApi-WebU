@@ -249,6 +249,33 @@
     "personalization": "Kişiselleştirme",
     "navPersona": "Persona",
     "navPassword": "Şifre",
-    "navSystem": "Sistem"
+    "navSystem": "Sistem",
+    "monitor": {
+      "title": "Sistem İzleci",
+      "subtitle": "Kaynak kullanımı ve performans",
+      "live": "Canlı",
+      "cpu": "CPU",
+      "memory": "Bellek",
+      "disk": "Disk",
+      "cores": "{{n}} çekirdek",
+      "uptime": "Çalışma süresi",
+      "processes": "Süreç",
+      "load": "Sistem yükü",
+      "model": "Model",
+      "none": "Yok",
+      "status": {
+        "good": "Sağlıklı",
+        "elevated": "Yoğun",
+        "critical": "Kritik"
+      },
+      "error": "Metrikler alınamıyor",
+      "retry": "Yeniden dene",
+      "up": {
+        "day": "g",
+        "hour": "sa",
+        "minute": "dk",
+        "second": "sn"
+      }
+    }
   }
 }

@@ -249,6 +249,33 @@
     "personalization": "Personalization",
     "navPersona": "Persona",
     "navPassword": "Password",
-    "navSystem": "System"
+    "navSystem": "System",
+    "monitor": {
+      "title": "System Monitor",
+      "subtitle": "Resource usage & performance",
+      "live": "Live",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "disk": "Disk",
+      "cores": "{{n}} cores",
+      "uptime": "Uptime",
+      "processes": "Processes",
+      "load": "Load",
+      "model": "Model",
+      "none": "None",
+      "status": {
+        "good": "Healthy",
+        "elevated": "Elevated",
+        "critical": "Critical"
+      },
+      "error": "Metrics unavailable",
+      "retry": "Retry",
+      "up": {
+        "day": "d",
+        "hour": "h",
+        "minute": "m",
+        "second": "s"
+      }
+    }
   }
 }

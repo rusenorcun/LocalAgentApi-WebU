@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, X, Check, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Download, Star } from 'lucide-react'
 import { api } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 
@@ -17,16 +17,28 @@ export default function ModelsTab() {
   const updateModel = useMutation({
     mutationFn: ({ id, body }: { id: number, body: any }) =>
       api.patch(`/api/v2/models/admin/${id}`, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'models'] }); setEditing(null) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'models'] })
+      qc.invalidateQueries({ queryKey: ['models'] })
+      setEditing(null)
+    },
   })
   const createModel = useMutation({
     mutationFn: (body: any) => api.post('/api/v2/models/admin', body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'models'] }); setAdding(false) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'models'] })
+      qc.invalidateQueries({ queryKey: ['models'] })
+      setAdding(false)
+    },
   })
   const deleteModel = useMutation({
     mutationFn: (id: number) => api.delete(`/api/v2/models/admin/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'models'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'models'] })
+      qc.invalidateQueries({ queryKey: ['models'] })
+    },
   })
+
 
   // ── Sistem / Ollama: çalışan (VRAM) + diskte yüklü + indir/sil ──
   const [pullName, setPullName] = useState('')
@@ -152,9 +164,15 @@ export default function ModelsTab() {
         {catalog.map(m => (
           editing?.id === m.id
             ? <ModelEditRow key={m.id} model={m} onSave={(body) => updateModel.mutate({ id: m.id, body })} onCancel={() => setEditing(null)} />
-            : <ModelRow key={m.id} model={m} onEdit={() => setEditing(m)} onDelete={() => {
-                if (confirm('Sil?')) deleteModel.mutate(m.id)
-              }} />
+            : <ModelRow
+                key={m.id}
+                model={m}
+                onSetDefault={() => updateModel.mutate({ id: m.id, body: { is_default: true } })}
+                onEdit={() => setEditing(m)}
+                onDelete={() => {
+                  if (confirm(`${m.name_i18n?.tr || m.ollama_name} silinsin mi?`)) deleteModel.mutate(m.id)
+                }}
+              />
         ))}
         {adding && (
           <ModelEditRow model={null} onSave={(body) => createModel.mutate(body)} onCancel={() => setAdding(false)} />
@@ -213,26 +231,59 @@ export default function ModelsTab() {
   )
 }
 
-function ModelRow({ model: m, onEdit, onDelete }: { model: any, onEdit: () => void, onDelete: () => void }) {
+function ModelRow({
+  model: m,
+  onSetDefault,
+  onEdit,
+  onDelete,
+}: {
+  model: any
+  onSetDefault: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
   return (
     <div className="flex items-center gap-4 px-4 py-3 rounded-2xl"
       style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm" style={{ color: 'var(--text)' }}>
             {m.name_i18n?.tr || m.ollama_name}
           </span>
           {!m.enabled && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}>Kapalı</span>}
           {m.internal && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'color-mix(in srgb, var(--warning) 15%, transparent)', color: 'var(--warning)' }}>Dahili</span>}
-          {m.is_default && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)' }}>Varsayılan</span>}
+          {m.is_default ? (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+              style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)' }}>
+              <Star size={11} fill="currentColor" /> Varsayılan
+            </span>
+          ) : (
+            <button
+              onClick={onSetDefault}
+              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed hover:border-solid hover:bg-[var(--surface-2)] transition-all cursor-pointer opacity-70 hover:opacity-100"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-3)' }}
+              title="Bu modeli varsayılan yap"
+            >
+              <Star size={10} /> Varsayılan Yap
+            </button>
+          )}
         </div>
         <code className="text-xs" style={{ color: 'var(--text-3)' }}>{m.ollama_name}</code>
       </div>
-      <div className="flex gap-1">
-        <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-[var(--surface-2)]" style={{ color: 'var(--text-3)' }}>
+      <div className="flex items-center gap-1">
+        {!m.is_default && (
+          <button
+            onClick={onSetDefault}
+            className="p-1.5 rounded-lg hover:bg-[var(--surface-2)] transition-colors text-[var(--text-3)] hover:text-amber-500"
+            title="Varsayılan Yap"
+          >
+            <Star size={14} />
+          </button>
+        )}
+        <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-[var(--surface-2)]" style={{ color: 'var(--text-3)' }} title="Düzenle">
           <Pencil size={14} />
         </button>
-        <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-[var(--surface-2)]" style={{ color: 'var(--error)' }}>
+        <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-[var(--surface-2)]" style={{ color: 'var(--error)' }} title="Sil">
           <Trash2 size={14} />
         </button>
       </div>
@@ -249,6 +300,7 @@ function ModelEditRow({ model, onSave, onCancel }: { model: any, onSave: (b: any
     speed: model?.speed ?? 3,
     enabled: model?.enabled ?? true,
     internal: model?.internal ?? false,
+    is_default: model?.is_default ?? false,
   })
   const f = (k: string) => (e: any) => setForm(s => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
@@ -260,11 +312,14 @@ function ModelEditRow({ model, onSave, onCancel }: { model: any, onSave: (b: any
         <Input label="Ad (EN)" value={form.name_en} onChange={f('name_en')} />
         <Input label="Açıklama (TR)" value={form.desc_tr} onChange={f('desc_tr')} />
         <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-2)' }}>
-            <input type="checkbox" checked={form.enabled} onChange={f('enabled')} /> Aktif
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium" style={{ color: form.is_default ? 'var(--accent)' : 'var(--text-2)' }}>
+            <input type="checkbox" checked={form.is_default} onChange={f('is_default')} className="w-4 h-4 accent-[var(--accent)]" /> Varsayılan Model
           </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-2)' }}>
-            <input type="checkbox" checked={form.internal} onChange={f('internal')} /> Dahili
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ color: 'var(--text-2)' }}>
+            <input type="checkbox" checked={form.enabled} onChange={f('enabled')} className="w-4 h-4 accent-[var(--accent)]" /> Aktif
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ color: 'var(--text-2)' }}>
+            <input type="checkbox" checked={form.internal} onChange={f('internal')} className="w-4 h-4 accent-[var(--accent)]" /> Dahili
           </label>
           <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-2)' }}>
             Hız:
@@ -276,12 +331,13 @@ function ModelEditRow({ model, onSave, onCancel }: { model: any, onSave: (b: any
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <button onClick={onCancel} className="p-2 rounded-xl hover:bg-[var(--surface-2)]" style={{ color: 'var(--text-3)' }}><X size={16} /></button>
-        <button onClick={() => onSave(form)} className="p-2 rounded-xl" style={{ background: 'var(--grad)', color: '#fff' }}><Check size={16} /></button>
+        <button onClick={onCancel} className="p-2 rounded-xl hover:bg-[var(--surface-2)]" style={{ color: 'var(--text-3)' }} title="İptal"><X size={16} /></button>
+        <button onClick={() => onSave(form)} className="p-2 rounded-xl" style={{ background: 'var(--grad)', color: '#fff' }} title="Kaydet"><Check size={16} /></button>
       </div>
     </div>
   )
 }
+
 
 function Input({ label, value, onChange }: { label: string, value: string, onChange: any }) {
   return (

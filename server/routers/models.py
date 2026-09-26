@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -13,6 +14,8 @@ from .. import chat, config
 from ..auth_v2 import current_user, require_admin
 from ..database import ModelCatalog, User, get_session
 from ..services.text_utils import sse as _sse
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2/models", tags=["models"])
 
@@ -48,6 +51,7 @@ class ModelCreate(BaseModel):
     enabled: bool = True
     internal: bool = False
     is_vision: bool = False
+    is_default: bool = False
 
 
 # ── Yardımcı ─────────────────────────────────────────────────────────────────
@@ -175,6 +179,12 @@ async def admin_create_model(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Model zaten katalogda")
 
+    if body.is_default:
+        from sqlalchemy import update as sqla_update
+        await db.execute(sqla_update(ModelCatalog).values(is_default=False))
+        from .. import settings
+        settings.update({"MODEL_NAME": body.ollama_name})
+
     m = ModelCatalog(
         ollama_name=body.ollama_name,
         name_i18n_json=json.dumps({"tr": body.name_tr, "en": body.name_en}),
@@ -184,6 +194,7 @@ async def admin_create_model(
         is_vision=body.is_vision,
         enabled=body.enabled,
         internal=body.internal,
+        is_default=body.is_default,
     )
     db.add(m)
     await db.commit()
@@ -239,16 +250,17 @@ async def admin_update_model(
     if body.tune_auto is not None:
         m.tune_auto = body.tune_auto
 
-    # Varsayılan değişikliği: diğerlerini sıfırla
+    # Varsayılan değişikliği: diğerlerini sıfırla ve settings'e kaydet
     if body.is_default is True:
-        await db.execute(
-            select(ModelCatalog)  # tüm satırları güncelle
-        )
         from sqlalchemy import update as sqla_update
         await db.execute(
             sqla_update(ModelCatalog).values(is_default=False)
         )
         m.is_default = True
+        from .. import settings
+        settings.update({"MODEL_NAME": m.ollama_name})
+    elif body.is_default is False and m.is_default:
+        m.is_default = False
 
     await db.commit()
     return _model_dict(m, "tr", admin=True)
@@ -264,9 +276,20 @@ async def admin_delete_model(
     m = result.scalar_one_or_none()
     if not m:
         raise HTTPException(status_code=404, detail="Model bulunamadı")
+    was_default = m.is_default
     await db.delete(m)
     await db.commit()
+    if was_default:
+        next_default = (await db.execute(
+            select(ModelCatalog).where(ModelCatalog.enabled == True).order_by(ModelCatalog.id)
+        )).scalars().first()
+        if next_default:
+            next_default.is_default = True
+            await db.commit()
+            from .. import settings
+            settings.update({"MODEL_NAME": next_default.ollama_name})
     return {"deleted": True}
+
 
 
 @router.post("/admin/retune")
@@ -321,3 +344,152 @@ async def admin_pull(name: str = Body(..., embed=True), admin: User = Depends(re
             yield _sse({"status": "error", "error": str(e)})
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── Sistem monitörü ve model yönetimi ───────────────────────────────────────────
+
+class SystemStats(BaseModel):
+    cpu_usage: float
+    memory_usage: float
+    disk_usage: float
+    active_processes: int
+    running_model: str | None = None
+    # İzleç ek alanları (services/system_stats.collect)
+    cpu_count: int | None = None
+    memory_used_gb: float | None = None
+    memory_total_gb: float | None = None
+    disk_used_gb: float | None = None
+    disk_total_gb: float | None = None
+    uptime_seconds: int | None = None
+    load_avg: list[float] | None = None
+    platform: str | None = None
+
+
+class SystemUnloadRequest(BaseModel):
+    model: str
+
+
+class SystemReloadRequest(BaseModel):
+    model: str
+
+
+class SystemActionResponse(BaseModel):
+    ok: bool
+    note: str | None = None
+
+
+@router.get("/admin/system/stats", response_model=SystemStats)
+async def admin_system_stats(admin: User = Depends(require_admin)):
+    """Sistem kaynak kullanım istatistikleri (CPU, Memory, Disk)."""
+    import asyncio
+    import httpx
+
+    from ..services.system_stats import collect
+
+    # Metrikleri thread havuzunda topla (psutil/proc okumaları senkron)
+    data = await asyncio.to_thread(collect)
+
+    # Çalışan model (Ollama üzerinden kontrol)
+    running_model = None
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(f"{config.OLLAMA_HOST}/api/ps")
+            if r.status_code == 200:
+                running_models = r.json().get("models", [])
+                running_model = running_models[0].get("name") if running_models else None
+    except Exception:
+        pass
+
+    return {**data, "running_model": running_model}
+
+
+@router.get("/admin/system/models")
+async def admin_system_models(admin: User = Depends(require_admin)):
+    """Ollama yüklü modeller ve VRAM kullanım durumları."""
+    try:
+        installed = await chat.list_models()
+    except Exception:
+        installed = []
+
+    try:
+        running = await chat.running_models()
+    except Exception:
+        running = []
+
+    running_map = {}
+    for r in running:
+        name = r.get("name")
+        if name:
+            running_map[name] = r
+            if ":" in name:
+                running_map[name.split(":")[0]] = r
+            else:
+                running_map[f"{name}:latest"] = r
+
+    vram_total_mb = 0
+    try:
+        from ..services.model_tuner import detect_vram_mb
+        vram_total_mb = detect_vram_mb() or 0
+    except Exception:
+        pass
+    vram_total_bytes = int(vram_total_mb * 1024 * 1024)
+
+    out = []
+    for m in installed:
+        name = m.get("name", "")
+        run_info = running_map.get(name) or running_map.get(f"{name}:latest") or running_map.get(name.split(":")[0])
+        vram_used = run_info.get("size_vram", 0) if run_info else 0
+        out.append({
+            "name": name,
+            "size": m.get("size", 0),
+            "vram_used": vram_used,
+            "vram_total": vram_total_bytes,
+            "is_loading": False,
+        })
+    return out
+
+
+@router.post("/admin/system/unload", response_model=SystemActionResponse)
+async def admin_system_unload(body: SystemUnloadRequest, admin: User = Depends(require_admin)):
+    """Modeli Bellekten boşalt (keep_alive=0)."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(
+                f"{config.OLLAMA_HOST}/api/generate",
+                json={"model": body.model, "keep_alive": 0}
+            )
+            if r.status_code == 200:
+                return {"ok": True}
+            # Embedding modelleri için dene
+            await client.post(
+                f"{config.OLLAMA_HOST}/api/embed",
+                json={"model": body.model, "input": []}
+            )
+        return {"ok": True}
+    except Exception as e:
+        log.warning("Model boşaltılamadı: %s - %s", body.model, e)
+        return {"ok": False, "note": str(e)}
+
+
+@router.post("/admin/system/reload", response_model=SystemActionResponse)
+async def admin_system_reload(body: SystemReloadRequest, admin: User = Depends(require_admin)):
+    """Modeli yeniden yükle / belleğe getir."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Modelin varlığını kontrol et
+            r = await client.get(f"{config.OLLAMA_HOST}/api/tags")
+            if r.status_code == 200:
+                models = [m.get("name") for m in r.json().get("models", []) if m.get("name")]
+                if body.model not in models and f"{body.model}:latest" not in models:
+                    return {"ok": False, "note": "Model bulunamadı"}
+            # Modeli yuklemeye çalış (keep_alive ile)
+            r = await client.post(
+                f"{config.OLLAMA_HOST}/api/generate",
+                json={"model": body.model, "keep_alive": "2m"}
+            )
+            return {"ok": r.status_code == 200}
+    except Exception as e:
+        log.warning("Model yeniden yükleme hatası: %s - %s", body.model, e)
+        return {"ok": False, "note": str(e)}

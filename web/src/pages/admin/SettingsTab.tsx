@@ -21,6 +21,11 @@ const META: Record<string, { label: string; desc: string; group: string }> = {
     desc: 'Modele her istekte gönderilen en fazla token. Büyük değer = daha çok hafıza ama daha çok VRAM. 16GB için 8192-32768 arası.',
     group: 'Sohbet ve Bağlam',
   },
+  API_NUM_CTX: {
+    label: 'API varsayılan bağlam penceresi (/v1 token)',
+    desc: 'OpenAI uyumlu (/v1: OpenCode, Aider, Cursor vb.) isteklerde varsayılan bağlam penceresi. Öncelik: istekteki num_ctx > bağlantıya özel değer (API Anahtarları › Ollama API bağlantıları) > bu ayar > model kataloğu. 0 girilirse model kataloğu / Ollama varsayılanı geçerli olur.',
+    group: 'Sohbet ve Bağlam',
+  },
   MAX_CHAT_TOKENS: {
     label: 'Sohbet saklama sınırı (token)',
     desc: 'Tek sohbette diskte tutulacak en fazla token. Aşılınca kullanıcıdan yeni sohbet istenir.',
@@ -104,6 +109,8 @@ export default function SettingsTab() {
         ...old,
         settings: res.data.settings,
       }))
+      queryClient.invalidateQueries({ queryKey: ['admin', 'models'] })
+      queryClient.invalidateQueries({ queryKey: ['models'] })
       setSaved(true); setErrorMsg(null); setChanges({})
       setTimeout(() => setSaved(false), 2000)
     },

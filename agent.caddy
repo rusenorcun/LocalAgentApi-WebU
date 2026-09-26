@@ -1,0 +1,130 @@
+# LocalAgent — agent.rorcun.com (+ /mcp), api.rorcun.com
+# Ana Caddyfile (C:\Program Files\Caddy\Caddyfile) bu dosyayi "import" eder.
+# Degisiklikten sonra: caddy validate + caddy reload (yonetici PowerShell).
+# Global ayar ({ ... } blogu) BURAYA YAZILMAZ; yalnizca ana dosyada olur.
+
+# ---------------------------------------------------------------------------
+# LocalAgent — FastAPI backend (yalnızca localhost dinler) + MCP HTTP
+# ---------------------------------------------------------------------------
+# rorcun.com'dan agent.rorcun.com'a tasindi; her site artik ayri bir alt alan
+# adiyla hizmet veriyor (agent / kitap / irem / api).
+agent.rorcun.com {
+	encode gzip
+
+	# Bilinen tarama yolları doğrudan 404.
+	@scanners path /wp-admin* /wp-login* /.env* /.git* /phpmyadmin* /xmlrpc.php
+	handle @scanners {
+		respond 404
+	}
+
+	# MCP HTTP (Bearer token korumalı, bkz. mcp/README.md) — yalnızca bu yolu
+	# yerel :8765'teki MCP sunucusuna yönlendirir. Token doğrulaması uygulama
+	# katmanında yapılır; 8765 hiçbir zaman dışarı açılmaz.
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		reverse_proxy 127.0.0.1:8765
+	}
+
+	# FastAPI backend — geri kalan her şey
+	handle {
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	# Dosya yükleme sınırı (uygulamadaki MAX_UPLOAD_MB=40 ile uyumlu)
+	request_body {
+		max_size 50MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Backend kapalıyken ham 502 yerine bakım sayfası
+	handle_errors 502 503 504 {
+		root * "C:/Project/LocalAgentApi-WebU - OpenCode"
+		rewrite * /bakım.html
+		file_server
+	}
+}
+
+# ---------------------------------------------------------------------------
+# YENİ: api.rorcun.com — Ollama güvenli proxy (FastAPI üzerinden)
+# ---------------------------------------------------------------------------
+# Bu alt alan adı yalnızca /ollama/{connection_id}/... yollarını
+# 127.0.0.1:9000'daki FastAPI'ye yönlendirir. FastAPI JWT admin yetkisi +
+# kayıtlı API key doğrulaması yaptıktan sonra gerçek Ollama'ya proxy yapar.
+# Hiçbir başka yol açık değildir.
+# ---------------------------------------------------------------------------
+api.rorcun.com {
+	encode gzip
+
+	@scanners path /wp-admin* /wp-login* /.env* /.git* /phpmyadmin* /xmlrpc.php
+	handle @scanners {
+		respond 404
+	}
+
+	# Kök (/) — bağlantı sağlığı sayfası. Sayfadaki JavaScript, aşağıdaki
+	# /api/v2/health ucu üzerinden FastAPI'nin durumunu çeker; sunucu kapalıysa
+	# sayfa "kapalı / bakımda" durumunu gösterir.
+	@durum path /
+	handle @durum {
+		root * "C:/Project/LocalAgentApi-WebU - OpenCode"
+		rewrite * /api_durum.html
+		file_server
+	}
+
+	# Sağlık durumu verisi (sayfa tarafından çekilir; FastAPI :9000)
+	@health path /api/v2/health /api/health
+	handle @health {
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	@ollama path /ollama /ollama/*
+	handle @ollama {
+		# /ollama/{id}/... isteklerini FastAPI /api/v2/ollama/proxy/{id}/... yoluna rewrite et.
+		# (MCP relay HTTP modu artik kullanilmadigi icin dogrudan FastAPI proxy'sine gider.)
+		uri strip_prefix /ollama
+		rewrite * /api/v2/ollama/proxy{path}
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	# /v1/* — Aider/OpenAI uyumlu istemciler icin.
+	# Acik rewrite yollari ile SPA fallback ve cift prefix sorunlarindan kacinilir.
+	@v1 path /v1 /v1/*
+	handle @v1 {
+		rewrite /v1/models            /api/v2/openai/v1/models
+		rewrite /v1/chat/completions  /api/v2/openai/v1/chat/completions
+		rewrite /v1/completions       /api/v2/openai/v1/completions
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	# api.rorcun.com üzerinde /ollama ve /v1 disinda bir sey yok
+	handle {
+		respond 404
+	}
+
+	request_body {
+		max_size 50MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Backend (FastAPI) kapalıysa bakım sayfası
+	handle_errors 502 503 504 {
+		root * "C:/Project/LocalAgentApi-WebU - OpenCode"
+		rewrite * /bakim-api.html
+		file_server
+	}
+}

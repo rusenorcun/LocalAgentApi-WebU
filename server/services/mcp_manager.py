@@ -100,8 +100,9 @@ async def get_status() -> dict:
             token = p.read_text(encoding="utf-8").strip() if p.is_file() else ""
         except Exception:
             pass
-        # Yaşayan ama kaydını tutmadığımız süreç = .bat ile elle başlatılmış
+        # Yaşayan ama kaydını tutmadığımız süreç = .bat ile ele başlatılmış
         external = healthy and not alive
+        conn_id = _default_ollama_connection_id()
         return {
             "running": bool(alive or healthy),
             "healthy": healthy,
@@ -114,19 +115,24 @@ async def get_status() -> dict:
             "url": f"http://{config.MCP_HTTP_HOST}:{config.MCP_HTTP_PORT}/mcp",
             "token_masked": mask_token(token),
             "token_file": str(config.MCP_TOKEN_FILE),
+            "default_connection": conn_id if conn_id else "__local_default__",
         }
 
 
 async def start() -> dict:
-    """Relay'i HTTP modunda başlatır. Zaten ayaktaysa dokunmaz."""
+    """Relay'i HTTP moduna başlatır. Zaten ayaktaysa dokunmaz."""
     global _proc, _log_fh, _started_at
 
     async with _lock:
-        # Zaten çalışan örnek var mı? (bizim çocuk ya da .bat örneği)
+        # Zaman çalışan örnek var mı? (bizim çocuk ya da .bat örneği)
         alive = _proc is not None and _proc.poll() is None
         if alive or await is_healthy():
+            # Varsayılan bağlantıyı belirle
+            conn_id = _default_ollama_connection_id()
+            default_conn = conn_id if conn_id else "__local_default__"
             return {"ok": True, "already": True,
-                    "managed": bool(alive), "pid": _proc.pid if alive else None}
+                    "managed": bool(alive), "pid": _proc.pid if alive else None,
+                    "connection_id": conn_id, "default_connection": default_conn}
 
         token = read_or_create_token()
 
@@ -143,13 +149,11 @@ async def start() -> dict:
         env = {
             **os.environ,
             "MCP_TRANSPORT": "http",
-            # Alt surecin GERCEK dinleme adresi (Docker'da 0.0.0.0 olmali —
-            # bkz. config.MCP_BIND_HOST). Panel/healthz her zaman
-            # config.MCP_HTTP_HOST (127.0.0.1) uzerinden konusur.
             "MCP_HOST": config.MCP_BIND_HOST,
             "MCP_PORT": str(config.MCP_HTTP_PORT),
             "MCP_TOKEN": token,
             "OLLAMA_HOST": config.OLLAMA_HOST,
+            "MCP_KEEP_ALIVE": config.API_KEEP_ALIVE,
             "OLLAMA_PROXY_DOMAIN": config.OLLAMA_PROXY_DOMAIN,
             "OLLAMA_PROXY_PATH": config.OLLAMA_PROXY_PATH,
             "OLLAMA_PROXY_FORCE": "true" if config.OLLAMA_PROXY_FORCE else "false",
@@ -187,12 +191,17 @@ async def start() -> dict:
                 _proc = None
                 return {"ok": False, "error": f"Süreç erken kapandı. Log:\n{tail}"}
             if await is_healthy(timeout=0.8):
+                conn_id = env.get("OLLAMA_CONNECTION_ID")
+                default_conn = conn_id if conn_id else "__local_default__"
                 return {"ok": True, "already": False,
-                        "managed": True, "pid": _proc.pid}
+                        "managed": True, "pid": _proc.pid,
+                        "connection_id": conn_id, "default_connection": default_conn}
             await asyncio.sleep(0.4)
 
         return {"ok": True, "already": False, "managed": True, "pid": _proc.pid,
-                "warning": "Süreç ayakta ama sağlık yanıtı gecikti"}
+                "warning": "Süreç ayakta ama sağlık yanıtı gecikti",
+                "connection_id": env.get("OLLAMA_CONNECTION_ID"),
+                "default_connection": env.get("OLLAMA_CONNECTION_ID")}
 
 
 async def stop(force: bool = False) -> dict:
@@ -237,7 +246,7 @@ async def stop(force: bool = False) -> dict:
                 return {"ok": False,
                         "error": ("Relay .bat ile elle başlatılmış görünüyor; "
                                   "panel 'Zorla Durdur' kullanabilir")}
-            return {"ok": True, "stopped": None}
+            return {"ok": True, "stopped": None, "connection_id": None}
 
         if _log_fh is not None:
             try:
@@ -254,7 +263,8 @@ async def stop(force: bool = False) -> dict:
                 break
             await asyncio.sleep(0.3)
 
-        return {"ok": True, "stopped": stopped_pid}
+        conn_id = None  # after stop, no active connection
+        return {"ok": True, "stopped": stopped_pid, "connection_id": conn_id}
 
 
 async def _find_listener_pid(port: int) -> Optional[int]:

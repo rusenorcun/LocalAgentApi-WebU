@@ -49,6 +49,25 @@ CODER_ENABLED = os.getenv("CODER_ENABLED", "true").lower() == "true"
 KEEP_ALIVE = os.getenv("KEEP_ALIVE", "30m")
 # Yardımcı modeller (özet/başlık/rerank/intent) için keep_alive.
 HELPER_KEEP_ALIVE = os.getenv("HELPER_KEEP_ALIVE", "10m")
+# Buyuk model sirasi (bkz. services/model_gate.py): buyuk modeller birbirini
+# bekler; farkli buyuk model gerekiyorsa bostaki onceki buyuk model bosaltilir.
+# Kucuk modeller (embedding, 7B yardimcilar) eskisi gibi serbest calisir.
+SEQUENTIAL_MODEL_LOADING = os.getenv("SEQUENTIAL_MODEL_LOADING", "true").lower() == "true"
+# Bu boyuttan (GB, diskteki model boyutu) buyuk modeller "buyuk" sayilir.
+BIG_MODEL_MIN_GB = float(os.getenv("BIG_MODEL_MIN_GB", "10"))
+# Yardimci (companion) model keep_alive'i — orn. plan->code'da coder: orkestrator
+# bellekte kalir, coder is biter bitmez cikar ("0" = hemen).
+SUB_MODEL_KEEP_ALIVE = os.getenv("SUB_MODEL_KEEP_ALIVE", "0")
+# Bosaltmanin /api/ps'te gorulmesi icin azami bekleme (sn). Asilirsa devam edilir.
+MODEL_UNLOAD_TIMEOUT = float(os.getenv("MODEL_UNLOAD_TIMEOUT", "30"))
+# API baglantisi (/v1, Ollama proxy, MCP relay) istisnasi: sirayi beklemez ama
+# keep_alive bu tavani asamaz — is bitince model en gec bu sure icinde bosalir.
+API_KEEP_ALIVE = os.getenv("API_KEEP_ALIVE", "2m")
+# /v1 (OpenAI uyumlu) uclari icin varsayilan baglam penceresi. Oncelik:
+# istekteki num_ctx > baglantinin num_ctx'i (panel) > API_NUM_CTX > model katalogu.
+API_NUM_CTX = int(os.getenv("API_NUM_CTX", "32768"))
+# /v1 isteklerinde Ollama yanitini bekleme siniri (saniye). 0 = sinirsiz.
+API_READ_TIMEOUT = os.getenv("API_READ_TIMEOUT", "0")
 # TÜM yardımcı model çağrılarında TEK sabit num_ctx kullanılır. Aynı model
 # farklı num_ctx ile çağrılırsa Ollama runner'ı her seferinde yeniden başlatır
 # (model reload = saniyeler). Bu değeri değiştirmeyin ya da hepsinde değiştirin.

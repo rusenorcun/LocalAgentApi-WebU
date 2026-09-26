@@ -2,8 +2,9 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/authStore'
 import { useTheme } from '../../hooks/useTheme'
 import { updatePreferences } from '../../api/auth'
+import SystemMonitorCard from '../../components/system/SystemMonitorCard'
 
-// Sistem ayarları: tema + dil. /settings/system
+// Sistem ayarları: izleç + tema + dil. /settings/system
 export default function SystemTab() {
   const { t, i18n } = useTranslation()
   const { lang, setLang } = useAuthStore()
@@ -15,6 +16,7 @@ export default function SystemTab() {
   return (
     <div className="max-w-md">
       <h1 className="text-xl font-bold mb-4" style={{ color: 'var(--text)' }}>{t('settings.system')}</h1>
+      <SystemMonitorCard />
       <p className={label} style={{ color: 'var(--text-3)' }}>{t('settings.theme')}</p>
       <div className="flex gap-1.5 p-1 rounded-[10px] mb-5"
            style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>

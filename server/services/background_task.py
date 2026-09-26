@@ -550,7 +550,8 @@ async def run_generation(
                         pass
                     try:
                         async for cev in cancellable_stream(
-                                chat.stream_chat(coder_chat, gen_options=coder_opts or None),
+                                chat.stream_chat(coder_chat, gen_options=coder_opts or None,
+                                                companion_of=model_to_use),
                                 cancel_event):
                             if cev is None:      # koder uretimi sirasinda durduruldu
                                 stopped = True

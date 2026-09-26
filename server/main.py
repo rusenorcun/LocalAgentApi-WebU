@@ -28,7 +28,9 @@ from .routers import ollama_openai as ollama_openai_router
 from .routers import ollama_proxy as ollama_proxy_router
 from .routers import summaries as summaries_router
 from .routers import projects as projects_router
+from .routers import system as system_router
 from .security import SecurityHeadersMiddleware, limiter
+from .services import model_gate
 
 
 @asynccontextmanager
@@ -56,6 +58,7 @@ app.include_router(admin_router.router)
 app.include_router(rag_router.router)
 app.include_router(summaries_router.router, prefix="/api/v2/summaries", tags=["summaries"])
 app.include_router(projects_router.router)
+app.include_router(system_router.router)
 app.include_router(ollama_router.router)
 app.include_router(ollama_proxy_router.router)
 app.include_router(mcp_router.router)
@@ -64,7 +67,8 @@ app.include_router(ollama_openai_router.router, prefix="")
 
 @app.get("/api/v2/health")
 async def health_v2():
-    return {"status": "ok", "model": config.MODEL_NAME, "queue": queue.stats}
+    return {"status": "ok", "model": config.MODEL_NAME, "queue": queue.stats,
+            "model_gate": model_gate.stats()}
 
 
 @app.get("/api/health")

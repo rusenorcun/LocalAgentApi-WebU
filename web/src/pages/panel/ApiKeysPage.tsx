@@ -8,7 +8,7 @@ import {
 import {
   listOllamaConnections, createOllamaConnection, updateOllamaConnection,
   deleteOllamaConnection, testOllamaConnection,
-  type OllamaConnection, type OllamaConnectionCreate,
+  type OllamaConnection, type OllamaConnectionCreate, type OllamaConnectionUpdate,
 } from '../../api/ollamaConnections'
 import { useAuthStore } from '../../store/authStore'
 
@@ -195,6 +195,9 @@ function OllamaConnectionsCard() {
   const qc = useQueryClient()
   const [form, setForm] = useState<Partial<OllamaConnectionCreate>>({ enabled: true })
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingLocal, setEditingLocal] = useState(false)
+  // Boş = global API_NUM_CTX, 0 = Ollama varsayılanı
+  const [ctxText, setCtxText] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<string | null>(null)
 
@@ -209,6 +212,8 @@ function OllamaConnectionsCard() {
 
   const startEdit = (c: OllamaConnection) => {
     setEditingId(c.id)
+    setEditingLocal(c.is_local)
+    setCtxText(c.num_ctx == null ? '' : String(c.num_ctx))
     setForm({
       name: c.name,
       base_url: c.base_url,
@@ -222,6 +227,8 @@ function OllamaConnectionsCard() {
 
   const resetForm = () => {
     setEditingId(null)
+    setEditingLocal(false)
+    setCtxText('')
     setForm({ enabled: true })
     setFormError(null)
   }
@@ -229,26 +236,55 @@ function OllamaConnectionsCard() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
-    if (!form.name?.trim() || !form.base_url?.trim()) {
-      setFormError('İsim ve URL gerekli.')
-      return
-    }
-    if (!form.api_key?.trim()) {
-      setFormError('API anahtarı zorunludur; anahtar olmadan Ollama bağlantısı başlamaz.')
-      return
+    let numCtx: number | null = null
+    if (ctxText.trim()) {
+      numCtx = parseInt(ctxText.trim(), 10)
+      if (!Number.isFinite(numCtx) || numCtx < 0 || numCtx > 262144) {
+        setFormError('Bağlam penceresi 0 ile 262144 arasında olmalı (boş = global ayar).')
+        return
+      }
     }
     try {
-      const body: OllamaConnectionCreate = {
-        name: form.name.trim(),
-        base_url: form.base_url.trim(),
-        api_key: form.api_key.trim(),
-        is_default: !!form.is_default,
-        enabled: form.enabled !== false,
-        notes: form.notes?.trim() || undefined,
+      if (editingLocal && editingId) {
+        await updateOllamaConnection(editingId, {
+          is_default: !!form.is_default,
+          enabled: form.enabled !== false,
+          num_ctx: numCtx,
+        })
+        resetForm()
+        invalidate()
+        return
+      }
+      if (!form.name?.trim() || !form.base_url?.trim()) {
+        setFormError('İsim ve URL gerekli.')
+        return
+      }
+      if (!editingId && !form.api_key?.trim()) {
+        setFormError('API anahtarı zorunludur; anahtar olmadan Ollama bağlantısı başlamaz.')
+        return
       }
       if (editingId) {
+        const body: OllamaConnectionUpdate = {
+          name: form.name.trim(),
+          base_url: form.base_url.trim(),
+          is_default: !!form.is_default,
+          enabled: form.enabled !== false,
+          notes: form.notes?.trim() ?? '',
+          num_ctx: numCtx,
+        }
+        // Boş bırakılırsa mevcut anahtar korunur
+        if (form.api_key?.trim()) body.api_key = form.api_key.trim()
         await updateOllamaConnection(editingId, body)
       } else {
+        const body: OllamaConnectionCreate = {
+          name: form.name.trim(),
+          base_url: form.base_url.trim(),
+          api_key: form.api_key!.trim(),
+          is_default: !!form.is_default,
+          enabled: form.enabled !== false,
+          notes: form.notes?.trim() || undefined,
+          num_ctx: numCtx,
+        }
         await createOllamaConnection(body)
       }
       resetForm()
@@ -297,6 +333,12 @@ function OllamaConnectionsCard() {
 
       {isAdmin && (
         <form onSubmit={submit} className="mb-4 p-3 rounded-[10px]" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+          {editingLocal && (
+            <div className="text-[12px] mb-2" style={{ color: 'var(--text-2)' }}>
+              <b>{form.name}</b> düzenleniyor — yerel bağlantıda yalnızca bağlam, varsayılan ve aktiflik değiştirilebilir.
+            </div>
+          )}
+          {!editingLocal && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2.5">
             <input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Bağlantı adı" disabled={!isAdmin}
@@ -307,13 +349,39 @@ function OllamaConnectionsCard() {
               className="rounded-lg px-3 py-2 text-[13px] bg-transparent outline-none"
               style={{ border: '1px solid var(--border)', color: 'var(--text)' }} />
             <input value={form.api_key ?? ''} onChange={(e) => setForm({ ...form, api_key: e.target.value })}
-              type="password" placeholder="API anahtarı *" disabled={!isAdmin} required
+              type="password" placeholder={editingId ? 'API anahtarı (boş = değiştirme)' : 'API anahtarı *'}
+              disabled={!isAdmin} required={!editingId}
               className="rounded-lg px-3 py-2 text-[13px] bg-transparent outline-none"
               style={{ border: '1px solid var(--border)', color: 'var(--text)' }} />
             <input value={form.notes ?? ''} onChange={(e) => setForm({ ...form, notes: e.target.value })}
               placeholder="Not" disabled={!isAdmin}
               className="rounded-lg px-3 py-2 text-[13px] bg-transparent outline-none"
               style={{ border: '1px solid var(--border)', color: 'var(--text)' }} />
+          </div>
+          )}
+          <div className="mb-2.5">
+            <label className="block text-[12px] mb-1" style={{ color: 'var(--text-2)' }}>
+              Bağlam penceresi (num_ctx, token)
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={ctxText} onChange={(e) => setCtxText(e.target.value.replace(/[^0-9]/g, ''))}
+                inputMode="numeric" placeholder="Boş = global API ayarı"
+                className="w-[180px] rounded-lg px-3 py-2 text-[13px] bg-transparent outline-none"
+                style={{ border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-mono)' }} />
+              {[8192, 16384, 32768, 65536, 131072].map((v) => (
+                <button key={v} type="button" onClick={() => setCtxText(String(v))}
+                  className="rounded-full px-2.5 py-1 text-[11.5px]"
+                  style={{ border: '1px solid var(--border)', cursor: 'pointer',
+                           background: ctxText === String(v) ? 'var(--accent-soft)' : 'transparent',
+                           color: ctxText === String(v) ? 'var(--accent)' : 'var(--text-2)' }}>
+                  {v / 1024}k
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
+              Bu bağlantı üzerinden gelen /v1 (OpenCode, Aider…) ve proxy isteklerinde modele gönderilir.
+              Boş = Ayarlar'daki global API bağlamı, 0 = otomatik (model kataloğu / Ollama varsayılanı). İstemci num_ctx gönderirse o geçerlidir.
+            </p>
           </div>
           <div className="flex items-center gap-4 mb-2.5">
             <label className="flex items-center gap-2 text-[12.5px]" style={{ color: 'var(--text-2)' }}>
@@ -359,6 +427,10 @@ function OllamaConnectionsCard() {
                 {c.is_default && <Badge tone="good">varsayılan</Badge>}
                 {!c.enabled && <Badge tone="warn">kapalı</Badge>}
                 {!c.is_local && !c.is_https && <Badge tone="warn">http</Badge>}
+                <Badge>
+                  ctx {c.effective_num_ctx > 0 ? c.effective_num_ctx.toLocaleString() : 'otomatik'}
+                  {c.num_ctx == null ? ' · global' : ''}
+                </Badge>
               </div>
               <div className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-3)' }}>{c.base_url}</div>
               {!c.is_local && (
@@ -384,12 +456,12 @@ function OllamaConnectionsCard() {
                   style={{ border: 'none', background: 'var(--bg)', color: 'var(--text-2)', cursor: 'pointer' }}>
                   {testingId === c.id ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
                 </button>
+                <button onClick={() => startEdit(c)} title="Düzenle"
+                  className="p-1.5 rounded-lg" style={{ border: 'none', background: 'var(--bg)', color: 'var(--text-2)', cursor: 'pointer' }}>
+                  <Edit2 size={14} />
+                </button>
                 {!c.is_local && (
                   <>
-                    <button onClick={() => startEdit(c)}
-                      className="p-1.5 rounded-lg" style={{ border: 'none', background: 'var(--bg)', color: 'var(--text-2)', cursor: 'pointer' }}>
-                      <Edit2 size={14} />
-                    </button>
                     <button onClick={() => remove(c.id)}
                       className="p-1.5 rounded-lg" style={{ border: 'none', background: 'var(--bg)', color: 'var(--danger, #e5484d)', cursor: 'pointer' }}>
                       <Trash2 size={14} />

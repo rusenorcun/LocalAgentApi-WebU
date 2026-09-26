@@ -371,8 +371,7 @@ async def init_db() -> None:
             except Exception:
                 pass  # kolon zaten var
     await _seed_model_catalog()
-    await _backfill_vision_flags()
-    await _sync_catalog_state()
+    await _sync_default_model()
     await _update_tool_capabilities()
     # Model bazlı otomatik num_ctx/num_gpu hesabı (VRAM'e göre)
     try:
@@ -469,47 +468,66 @@ _SYNC_FIELDS = ("name_i18n_json", "desc_i18n_json", "strengths_json", "speed", "
 
 
 async def _seed_model_catalog() -> None:
-    """Katalog bosken yonetilen modelleri ekler (varsa dokunmaz)."""
+    """Katalog bosken yonetilen modelleri ekler (daha once tohumlandiysa veya doluysa dokunmaz)."""
     from sqlalchemy import select
     async with async_session_maker() as session:
+        seeded = (await session.execute(
+            select(Settings).where(Settings.key == "catalog_seeded")
+        )).scalar_one_or_none()
+        if seeded:
+            return
+
         count = (await session.execute(select(func.count()).select_from(ModelCatalog))).scalar()
         if count and count > 0:
+            session.add(Settings(key="catalog_seeded", value="true"))
+            await session.commit()
             return
+
         for entry in _MANAGED_CATALOG:
             session.add(ModelCatalog(**entry))
+        session.add(Settings(key="catalog_seeded", value="true"))
         await session.commit()
+        await _backfill_vision_flags(session)
 
 
-async def _backfill_vision_flags() -> None:
-    """VL/vision modellerini is_vision=True yap (eski kurulumlarda eksik kalmis olabilir)."""
+async def _backfill_vision_flags(session=None) -> None:
+    """VL/vision modellerini is_vision=True yap (yalnizca ilk tohumlamada)."""
     from sqlalchemy import or_, update as _update
-    async with async_session_maker() as session:
-        patterns = ["%-vl%", "%vl:%", "%vision%", "%llava%", "%minicpm-v%", "%moondream%"]
-        conds = [ModelCatalog.ollama_name.ilike(p) for p in patterns]
+    patterns = ["%-vl%", "%vl:%", "%vision%", "%llava%", "%minicpm-v%", "%moondream%"]
+    conds = [ModelCatalog.ollama_name.ilike(p) for p in patterns]
+    if session is not None:
         await session.execute(_update(ModelCatalog).where(or_(*conds)).values(is_vision=True))
-        await session.commit()
+    else:
+        async with async_session_maker() as s:
+            await s.execute(_update(ModelCatalog).where(or_(*conds)).values(is_vision=True))
+            await s.commit()
+
+
+async def _sync_default_model() -> None:
+    """settings.json (config.MODEL_NAME) ile ModelCatalog.is_default'i senkronize eder."""
+    from sqlalchemy import select, update as _update
+    async with async_session_maker() as session:
+        saved_model = getattr(config, "MODEL_NAME", None)
+        if saved_model:
+            matching = (await session.execute(
+                select(ModelCatalog).where(ModelCatalog.ollama_name == saved_model)
+            )).scalar_one_or_none()
+            if matching:
+                if not matching.is_default:
+                    await session.execute(_update(ModelCatalog).values(is_default=False))
+                    matching.is_default = True
+                    await session.commit()
+                return
+
+        db_default = (await session.execute(
+            select(ModelCatalog).where(ModelCatalog.is_default == True)
+        )).scalars().first()
+        if db_default:
+            from . import settings
+            settings.update({"MODEL_NAME": db_default.ollama_name})
 
 
 async def _sync_catalog_state() -> None:
-    """Mevcut kurulumlari yonetilen listeyle hizalar (idempotent):
-      - Yonetilen model varsa isim/aciklama/rol alanlarini gunceller (rename mevcut DB'ye de yansir),
-        yoksa ekler.
-      - Artik yuklu olmayan modelleri gizler (enabled=False) — secicide hata vermesin.
-    """
-    from sqlalchemy import select, update as _update
-    async with async_session_maker() as session:
-        for entry in _MANAGED_CATALOG:
-            existing = (await session.execute(
-                select(ModelCatalog).where(ModelCatalog.ollama_name == entry["ollama_name"])
-            )).scalar_one_or_none()
-            if existing:
-                for f in _SYNC_FIELDS:
-                    setattr(existing, f, entry[f])
-            else:
-                session.add(ModelCatalog(**entry))
-        await session.execute(
-            _update(ModelCatalog)
-            .where(ModelCatalog.ollama_name.in_(_REMOVED_MODELS))
-            .values(enabled=False)
-        )
-        await session.commit()
+    """[DEPRECATED] Kullanıcı tercihlerini ezmemek için başlangıçta çağrılmaz."""
+    pass
+

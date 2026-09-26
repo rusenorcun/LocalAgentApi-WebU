@@ -19,6 +19,7 @@ set MODEL_NAME=qwen3.6:35b-a3b-q4_K_M
 
 REM Hiz/baglam (16GB VRAM icin dengeli)
 set NUM_CTX=8192
+set API_NUM_CTX=32768
 set MAX_CHAT_TOKENS=250000
 
 REM Gorsel -> metin hatti: gorseller ayri kucuk VL modeliyle metne dokulur,

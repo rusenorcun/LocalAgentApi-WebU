@@ -34,18 +34,25 @@ class McpStartOut(BaseModel):
     managed: bool = False
     pid: int | None = None
     warning: str | None = None
+    connection_id: str | None = None
+    default_connection: str | None = None
 
 
 class McpStopOut(BaseModel):
     ok: bool
     stopped: int | None = None
+    connection_id: str | None = None
 
 
 # ── Durum ─────────────────────────────────────────────────────────────────────
 
 @router.get("/status")
 async def mcp_status(_: object = Depends(require_admin)):
-    return await mcp_manager.get_status()
+    st = await mcp_manager.get_status()
+    # Add connection info
+    conn_id = mcp_manager._default_ollama_connection_id()
+    st["default_connection"] = conn_id if conn_id else "__local_default__"
+    return st
 
 
 @router.get("/token")
@@ -64,16 +71,18 @@ async def mcp_start(_: object = Depends(require_admin)):
         raise HTTPException(status_code=502, detail=res.get("error") or "Başlatılamadı")
     return {"ok": True, "already": bool(res.get("already")),
             "managed": bool(res.get("managed")), "pid": res.get("pid"),
-            "warning": res.get("warning")}
+            "warning": res.get("warning"),
+            "connection_id": res.get("connection_id"),
+            "default_connection": res.get("default_connection")}
 
 
 @router.post("/stop", response_model=McpStopOut)
 async def mcp_stop(force: bool = False, _: object = Depends(require_admin)):
-    """force=True: .bat ile başlatılmış DIŞ örneği de düşürmeye çalışır."""
+    """force=True: .bat ile başlatılmış DIŞ örnek de düşürmeye çalışır."""
     res = await mcp_manager.stop(force=force)
     if not res.get("ok"):
         raise HTTPException(status_code=409, detail=res.get("error") or "Durdurulamadı")
-    return {"ok": True, "stopped": res.get("stopped")}
+    return {"ok": True, "stopped": res.get("stopped"), "connection_id": res.get("connection_id")}
 
 
 # ── Araç listeleri ────────────────────────────────────────────────────────────

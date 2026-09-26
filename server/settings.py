@@ -18,6 +18,7 @@ _FILE = config.DATA_DIR / "settings.json"
 EDITABLE: dict[str, type] = {
     "MODEL_NAME": str,
     "NUM_CTX": int,
+    "API_NUM_CTX": int,
     "MAX_CHAT_TOKENS": int,
     "ENABLE_COMPACTION": bool,
     "ENABLE_THINKING": bool,
@@ -39,6 +40,7 @@ EDITABLE: dict[str, type] = {
 # (örn. NUM_CTX=10 milyon) Ollama runner'ı OOM ile çökertmesin diye clamp edilir.
 LIMITS: dict[str, tuple[int, int]] = {
     "NUM_CTX": (1024, 131072),
+    "API_NUM_CTX": (0, 131072),
     "MAX_CHAT_TOKENS": (10_000, 2_000_000),
     "MAX_IMAGES_PER_FILE": (1, 50),
     "IMAGE_MAX_EDGE": (128, 4096),

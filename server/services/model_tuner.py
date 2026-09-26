@@ -67,10 +67,16 @@ def _kv_gb(info: dict, n_ctx: int) -> float:
     emb = _find(info, ".embedding_length")
     heads = _find(info, ".attention.head_count")
     kv_heads = _find(info, ".attention.head_count_kv") or heads
-    if not (block and emb and heads):
+    if isinstance(kv_heads, (list, tuple)):
+        kv_heads = sum(kv_heads) / len(kv_heads) if kv_heads else heads
+    if isinstance(heads, (list, tuple)):
+        heads = sum(heads) / len(heads) if heads else 1
+    if not (isinstance(block, (int, float)) and isinstance(emb, (int, float)) and isinstance(heads, (int, float)) and isinstance(kv_heads, (int, float))):
         return 2.0 * (n_ctx / 16384)  # mimari bilinmiyorsa kaba tahmin
+    if heads <= 0:
+        return 2.0 * (n_ctx / 16384)
     head_dim = emb / heads
-    return (2 * block * n_ctx * head_dim * kv_heads * 2) / 1e9  # K+V, 2 bayt
+    return float(2 * block * n_ctx * head_dim * kv_heads * 2) / 1e9  # K+V, 2 bayt
 
 
 async def auto_tune_models() -> None:

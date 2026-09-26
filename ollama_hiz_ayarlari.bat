@@ -14,7 +14,8 @@ setx OLLAMA_FLASH_ATTENTION 1
 REM KV cache nicemleme: ayni VRAM'e ~2x baglam sigar (q8_0'da kalite kaybi ihmal).
 setx OLLAMA_KV_CACHE_TYPE q8_0
 
-REM Ayni anda bellekte tutulabilecek model sayisi (ana + kucuk yardimci model).
+REM Ayni anda bellekte tutulabilecek model sayisi. Web arayuzu zaten sirali
+REM yukler (tek model); 2, API/orkestrator istisnasinin ikinci modeli icindir.
 setx OLLAMA_MAX_LOADED_MODELS 2
 
 echo.

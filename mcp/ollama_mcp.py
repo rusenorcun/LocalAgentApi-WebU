@@ -40,6 +40,9 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
 CHAT_MODEL = os.getenv("MCP_CHAT_MODEL", "qwen3.6:35b-a3b-q4_K_M")
 REASONER_MODEL = os.getenv("MCP_REASONER_MODEL", "gpt-oss:120b")
 CODER_MODEL = os.getenv("MCP_CODER_MODEL", "qwen3-coder:30b")
+# Relay bir API baglantisidir: sirali yukleme kapisini beklemez, bu yuzden
+# model is bitince en gec bu sure icinde bellekten cikmali (panel: API_KEEP_ALIVE).
+KEEP_ALIVE = os.getenv("MCP_KEEP_ALIVE", "2m")
 
 # Uzak baglanti env'si: "__local_default__" veya bos ise yerel Ollama kullanilir.
 OLLAMA_CONNECTION_ID = os.getenv("OLLAMA_CONNECTION_ID", "").strip()
@@ -79,7 +82,8 @@ def _resolve_connection() -> tuple[str, str | None]:
                 api_key = item.get("api_key") or None
                 if OLLAMA_PROXY_FORCE and not item.get("is_local"):
                     return _proxy_url(item["id"]), api_key
-                return item.get("base_url", _default_host()).rstrip("/"), api_key
+                base = item.get("base_url", _default_host()).rstrip("/")
+                return base, api_key
     except Exception:
         pass
     return _default_host(), None
@@ -116,7 +120,7 @@ def _strip_thinking(text: str) -> str:
 
 
 async def _chat(model: str, prompt: str, system: str = "",
-                num_ctx: int = 16384, keep_alive: str = "5m",
+                num_ctx: int = 16384,
                 base_url: str | None = None, api_key: str | None = None) -> str:
     host = (base_url or _default_host()).rstrip("/")
     messages = []
@@ -128,7 +132,7 @@ async def _chat(model: str, prompt: str, system: str = "",
         "messages": messages,
         "stream": False,
         "options": {"num_ctx": num_ctx},
-        "keep_alive": keep_alive,
+        "keep_alive": KEEP_ALIVE,
     }
     headers = {}
     if api_key:
@@ -177,7 +181,7 @@ async def genel_sohbet(istem: str, baglam: str = "", sistem: str = "") -> str:
     prompt = istem if not baglam else f"BAGLAM:\n{baglam}\n\nISTEK:\n{istem}"
     host, key = _resolve_connection()
     return await _chat(CHAT_MODEL, prompt, system=sistem,
-                       num_ctx=16384, keep_alive="30m",
+                       num_ctx=16384,
                        base_url=host, api_key=key)
 
 
@@ -195,7 +199,7 @@ async def derin_analiz(soru: str, baglam: str = "") -> str:
     """
     prompt = soru if not baglam else f"BAGLAM:\n{baglam}\n\nSORU/GOREV:\n{soru}"
     host, key = _resolve_connection()
-    return await _chat(REASONER_MODEL, prompt, num_ctx=16384, keep_alive="5m",
+    return await _chat(REASONER_MODEL, prompt, num_ctx=16384,
                        base_url=host, api_key=key)
 
 
@@ -218,7 +222,7 @@ async def kod_yaz(gorev: str, kod_baglami: str = "", dil: str = "") -> str:
     parts.append(f"GOREV:\n{gorev}")
     host, key = _resolve_connection()
     return await _chat(CODER_MODEL, "\n\n".join(parts), system=system,
-                       num_ctx=16384, keep_alive="30m",
+                       num_ctx=16384,
                        base_url=host, api_key=key)
 
 
@@ -302,7 +306,7 @@ async def yerel_sohbet(istem: str, model: str = "", sistem: str = "") -> str:
         avail = ", ".join(n for n in names if n)[:300]
         return (f"Model bulunamadi: '{model}'. Kurulu modeller: {avail}. "
                 "Tam adla (etiket dahil) tekrar dene.")
-    return await _chat(model, istem, system=sistem, num_ctx=8192, keep_alive="10m",
+    return await _chat(model, istem, system=sistem, num_ctx=8192,
                        base_url=host, api_key=key)
 
 
@@ -321,12 +325,6 @@ async def uzaktan_sohbet(baglanti_id: str, istem: str, model: str = "", sistem: 
         return "baglanti_id ve model adi zorunlu."
     resolved = _load_remote_connection(baglanti_id)
     if resolved is None:
-        info_path = f"{_proxy_url(baglanti_id)}/api/tags"
-        try:
-            import urllib.request
-            urllib.request.urlopen(info_path, timeout=3)
-        except Exception:
-            pass
         return f"Baglanti bulunamadi veya yerel baglanti: '{baglanti_id}'."
     host, key = resolved
     names, err = await _list_remote_models(host, key)
@@ -336,7 +334,7 @@ async def uzaktan_sohbet(baglanti_id: str, istem: str, model: str = "", sistem: 
     if model not in names and not any(n and n.startswith(base + ":") for n in names):
         avail = ", ".join(n for n in names if n)[:300]
         return (f"Model bulunamadi: '{model}'. Kurulu modeller: {avail}.")
-    return await _chat(model, istem, system=sistem, num_ctx=8192, keep_alive="10m",
+    return await _chat(model, istem, system=sistem, num_ctx=8192,
                        base_url=host, api_key=key)
 
 

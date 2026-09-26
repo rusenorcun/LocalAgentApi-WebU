@@ -35,6 +35,9 @@ from ..database import User
 
 router = APIRouter(prefix="/api/v2/ollama", tags=["ollama_connections"])
 
+# Baglanti bazli num_ctx ust siniri (256k: qwen3-coder vb. uzun baglamli modeller).
+MAX_CONN_NUM_CTX = 262144
+
 _CONNS_FILE: Path = config.DATA_DIR / "ollama_connections.json"
 
 # --- Şemalar -----------------------------------------------------------------
@@ -46,6 +49,9 @@ class ConnectionBase(BaseModel):
     is_default: bool = False
     enabled: bool = True
     notes: Optional[str] = Field(default=None, max_length=300)
+    # /v1 ve proxy istekleri icin baglam penceresi. None = global API_NUM_CTX,
+    # 0 = otomatik (model katalogu / Ollama varsayilani).
+    num_ctx: Optional[int] = Field(default=None, ge=0, le=MAX_CONN_NUM_CTX)
 
     @field_validator("base_url")
     @classmethod
@@ -72,6 +78,8 @@ class ConnectionUpdate(BaseModel):
     is_default: Optional[bool] = None
     enabled: Optional[bool] = None
     notes: Optional[str] = Field(default=None, max_length=300)
+    # Alan gonderilip null verilirse global API_NUM_CTX'e donulur.
+    num_ctx: Optional[int] = Field(default=None, ge=0, le=MAX_CONN_NUM_CTX)
 
     @field_validator("api_key")
     @classmethod
@@ -96,6 +104,8 @@ class ConnectionOut(BaseModel):
     notes: Optional[str]
     last_seen_ok: Optional[str]
     models: list[str]
+    num_ctx: Optional[int]           # baglantiya ozel deger (None = global)
+    effective_num_ctx: int           # istekte gonderilecek deger (0 = Ollama varsayilani)
 
 
 def _proxy_url(connection_id: str) -> str:
@@ -164,8 +174,19 @@ def _get_item(item_id: str) -> Optional[dict]:
 
 
 def _persist(items: list[dict]) -> None:
-    # Yerel default dışarıya yazılmaz (env'den gelir).
-    _save_raw([i for i in items if not i.get("is_local")])
+    # Yerel bağlantı da yazılır (num_ctx gibi panel ayarları kalıcı olsun);
+    # base_url'i her yüklemede OLLAMA_HOST'tan yenilenir.
+    _save_raw(items)
+
+
+def effective_num_ctx(conn: Optional[dict]) -> int:
+    """Bağlantı için geçerli num_ctx: bağlantı değeri > global API_NUM_CTX.
+
+    0 döndüğünde model kataloğu / Ollama varsayılanı kullanılır.
+    """
+    if conn and conn.get("num_ctx") is not None:
+        return int(conn["num_ctx"])
+    return int(config.API_NUM_CTX or 0)
 
 
 # --- Ollama istemcisi --------------------------------------------------------
@@ -226,6 +247,8 @@ def _to_out(item: dict) -> ConnectionOut:
         notes=item.get("notes"),
         last_seen_ok=item.get("last_seen_ok"),
         models=item.get("models", []),
+        num_ctx=item.get("num_ctx"),
+        effective_num_ctx=effective_num_ctx(item),
     )
 
 
@@ -260,6 +283,7 @@ async def create_connection(body: ConnectionCreate, _admin: User = Depends(requi
         "notes": body.notes,
         "last_seen_ok": None,
         "models": [],
+        "num_ctx": body.num_ctx,
     }
     if body.is_default:
         for i in items:
@@ -280,7 +304,7 @@ async def update_connection(connection_id: str, body: ConnectionUpdate,
     if not item:
         raise HTTPException(status_code=404, detail="Bağlantı bulunamadı")
     if item.get("is_local"):
-        # Yerel default yalnızca is_default/abled güncellenebilir.
+        # Yerel default yalnızca is_default/enabled/num_ctx güncellenebilir.
         if body.name is not None or body.base_url is not None or body.api_key is not None or body.notes is not None:
             raise HTTPException(status_code=403, detail="Yerel varsayılan bağlantısı düzenlenemez")
 
@@ -294,6 +318,8 @@ async def update_connection(connection_id: str, body: ConnectionUpdate,
         item["enabled"] = bool(body.enabled)
     if body.notes is not None:
         item["notes"] = body.notes
+    if "num_ctx" in body.model_fields_set:
+        item["num_ctx"] = body.num_ctx
     if body.is_default is True:
         for i in items:
             if i.get("id") != connection_id and not i.get("is_local"):

@@ -7,7 +7,7 @@ from typing import AsyncGenerator
 import httpx
 
 from . import config
-from .services import windowing
+from .services import model_gate, windowing
 from .services.text_utils import estimate_tokens
 
 
@@ -146,7 +146,8 @@ class ThinkSplitter:
         return (rem, "") if self.in_think else ("", rem)
 
 
-async def stream_chat(chat: dict, images: list[str] | None = None, gen_options: dict | None = None) -> AsyncGenerator[dict, None]:
+async def stream_chat(chat: dict, images: list[str] | None = None, gen_options: dict | None = None,
+                      companion_of: str | None = None) -> AsyncGenerator[dict, None]:
     """
     Ollama'dan token token yanit akitir.
     images verilirse (base64 listesi) penceredeki son kullanici mesajina iliştirilir
@@ -155,6 +156,8 @@ async def stream_chat(chat: dict, images: list[str] | None = None, gen_options: 
       {"type": "delta", "text": "..."}
       {"type": "done", "content": "...", "prompt_tokens": N, "completion_tokens": M}
     Hata olursa OllamaError firlatir.
+    companion_of: bu cagri o orkestrator modelin yardimcisidir (orn. coder) —
+    orkestrator bellekte kalir, bu model is biter bitmez bosalir.
     """
     # P3: ctx ONCE belirlenir, pencere TEK SEFER kurulur (eskiden num_ctx
     # override'inda build_window iki kez cagriliyordu — ilk hesap boşaydı).
@@ -200,8 +203,9 @@ async def stream_chat(chat: dict, images: list[str] | None = None, gen_options: 
         "stream": True,
         "options": options,
         # Ana model bellekte kalsın — varsayılan 5dk sonra boşalır ve her
-        # yeni mesaj soğuk başlar (35B için onlarca saniye).
-        "keep_alive": config.KEEP_ALIVE,
+        # yeni mesaj soğuk başlar (35B için onlarca saniye). Yardımcı model
+        # (companion) ise işi biter bitmez çıksın.
+        "keep_alive": config.SUB_MODEL_KEEP_ALIVE if companion_of else config.KEEP_ALIVE,
     }
     if await _model_supports_thinking(model_name):
         payload["think"] = config.ENABLE_THINKING
@@ -215,7 +219,8 @@ async def stream_chat(chat: dict, images: list[str] | None = None, gen_options: 
     url = f"{config.OLLAMA_HOST}/api/chat"
     timeout = httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0)
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with model_gate.internal(model_name, keep=companion_of), \
+                httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream("POST", url, json=payload) as resp:
                 if resp.status_code != 200:
                     body = (await resp.aread()).decode("utf-8", "replace")
@@ -374,7 +379,7 @@ async def run_agent_turn(chat: dict, images: list[str] | None = None,
         prompt_tokens = completion_tokens = 0
         splitter = ThinkSplitter()
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with model_gate.internal(model), httpx.AsyncClient(timeout=timeout) as client:
                 async with client.stream("POST", url, json=payload) as resp:
                     if resp.status_code != 200:
                         body = (await resp.aread()).decode("utf-8", "replace")
@@ -541,7 +546,7 @@ async def _generate(messages: list[dict], num_ctx: int, model: str | None = None
     url = f"{config.OLLAMA_HOST}/api/chat"
     timeout = httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0)
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with model_gate.internal(payload["model"]), httpx.AsyncClient(timeout=timeout) as client:
             r = await client.post(url, json=payload)
             if r.status_code != 200:
                 raise OllamaError(f"Ollama {r.status_code}: {r.text[:200]}")

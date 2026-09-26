@@ -1,7 +1,9 @@
 {
   "NUM_CTX": 16384,
-  "MAX_CHAT_TOKENS": 250000,
+  "MAX_CHAT_TOKENS": 500000,
   "ENABLE_COMPACTION": true,
   "ALLOW_REGISTRATION": false,
-  "IMAGE_TO_TEXT": false
+  "IMAGE_TO_TEXT": false,
+  "MODEL_NAME": "gpt-oss:20b",
+  "API_NUM_CTX": 128000
 }

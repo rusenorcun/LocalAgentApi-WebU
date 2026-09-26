@@ -213,6 +213,54 @@ export default function McpServerPage() {
             </p>
           )}
         </div>
+
+        {/* Default connection info */}
+        {st && (
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="flex items-center justify-between">
+              <div className="text-[13px] font-medium" style={{ color: 'var(--text)' }}>Varsayılan Ollama bağlantısı</div>
+              <span className="text-[12px]" style={{ color: 'var(--text-2)' }}>
+                {st.default_connection || '—'}
+              </span>
+            </div>
+            <div className="mt-2 text-[12px]" style={{ color: 'var(--text-2)' }}>
+              {st.default_connection === '__local_default__' ? 'Yerel Ollama (OLLAMA_HOST env)' : 'Konfigüreli uzak bağlantı'}
+            </div>
+          </div>
+        )}
+
+        {/* Token */}
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-medium" style={{ color: 'var(--text-2)' }}>Bağlantı anahtarı (MCP_TOKEN)</div>
+            <button onClick={() => setShowToken((v) => !v)}
+                    className="text-[12.5px]" style={{ border: 'none', background: 'none', color: 'var(--accent)', cursor: 'pointer' }}>
+              {showToken ? 'gizle' : 'göster'}
+            </button>
+          </div>
+          <div className="mt-2 flex items-center gap-2 rounded-[9px] px-3 py-2.5"
+               style={{ background: 'var(--bg)', border: '1px solid var(--border)', fontFamily: 'var(--font-mono)' }}>
+            <span className="text-[12.5px] truncate flex-1" style={{ color: 'var(--text-2)' }}>
+              {showToken ? (fullToken || st?.token_masked) : (st?.token_masked || '—')}
+            </span>
+            {showToken && fullToken && (
+              <button onClick={copyToken} title="Kopyala"
+                      style={{ border: 'none', background: 'none', color: copied ? 'var(--success)' : 'var(--text-3)', cursor: 'pointer' }}>
+                {copied ? <Check size={15} /> : <Copy size={15} />}
+              </button>
+            )}
+          </div>
+          {!showToken && (
+            <button onClick={revealToken} className="text-[12px] mt-2" style={{ border: 'none', background: 'none', color: 'var(--text-3)', cursor: 'pointer' }}>
+              Tam anahtarı görüntüle (istemci config'i için)
+            </button>
+          )}
+          {showToken && (
+            <p className="text-[11.5px] mt-2 mb-0" style={{ color: 'var(--text-3)' }}>
+              Bu anahtarı paylaşma. Değiştirmek için <code style={{ fontFamily: 'var(--font-mono)' }}>mcp/.mcp_token</code> dosyasını silip yeniden başlat.
+            </p>
+          )}
+        </div>
       </Card>
 
       {/* ── Relay araçları (canlı) ──────────────────────────────────── */}

@@ -13,6 +13,10 @@ export interface OllamaConnection {
   notes?: string | null
   last_seen_ok?: string | null
   models: string[]
+  /** Bağlantıya özel bağlam (null = global API_NUM_CTX, 0 = otomatik: katalog/Ollama) */
+  num_ctx?: number | null
+  /** İsteklerde gerçekte kullanılan değer (0 = otomatik) */
+  effective_num_ctx: number
 }
 
 export interface OllamaConnectionCreate {
@@ -22,6 +26,7 @@ export interface OllamaConnectionCreate {
   is_default?: boolean
   enabled?: boolean
   notes?: string
+  num_ctx?: number | null
 }
 
 export interface OllamaConnectionUpdate {
@@ -31,6 +36,7 @@ export interface OllamaConnectionUpdate {
   is_default?: boolean
   enabled?: boolean
   notes?: string
+  num_ctx?: number | null
 }
 
 export const listOllamaConnections = () =>

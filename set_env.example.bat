@@ -22,6 +22,18 @@ set KEEP_ALIVE=30m
 REM Yardimci modeller (ozet/baslik/rerank) icin.
 set HELPER_KEEP_ALIVE=10m
 
+REM --- Buyuk model sirasi ---
+REM true: buyuk modeller birbirini bekler; farkli buyuk model gerekiyorsa
+REM bostaki onceki buyuk model bosaltilir. Kucuk modeller serbest calisir.
+set SEQUENTIAL_MODEL_LOADING=true
+REM Bu boyuttan (GB) buyuk modeller "buyuk" sayilir.
+set BIG_MODEL_MIN_GB=10
+REM Plan->code'da coder is biter bitmez bellekten ciksin (orkestrator kalir).
+set SUB_MODEL_KEEP_ALIVE=0
+REM API baglantisi (/v1, Ollama proxy, MCP) sirayi beklemez ama modeli is
+REM bitince en gec bu sure icinde bellekten cikarir.
+set API_KEEP_ALIVE=2m
+
 REM --- Hiz: otomatik web arama karari (her mesajda kucuk model = yavas) ---
 REM false: yalnizca web butonu / '@web' ile arama yapilir (onerilen).
 set WEBSEARCH_AUTO=false

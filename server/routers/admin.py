@@ -241,8 +241,53 @@ async def get_settings(admin: User = Depends(require_admin)):
 async def update_settings(
     body: SettingsPatch,
     admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
 ):
     applied = settings.update(body.changes or {})
+    if "MODEL_NAME" in applied:
+        new_model = applied["MODEL_NAME"]
+        from ..database import ModelCatalog
+        await db.execute(update(ModelCatalog).values(is_default=False))
+        await db.execute(
+            update(ModelCatalog)
+            .where(ModelCatalog.ollama_name == new_model)
+            .values(is_default=True)
+        )
+        await db.commit()
     await audit("admin_settings_update", user_id=admin.id, username=admin.username,
                 detail=str(list(applied.keys())))
     return {"applied": applied, "settings": settings.current()}
+
+
+
+# ── Sistem Monitörü & Model Yönetimi ──────────────────────────────────────────
+from .models import (
+    SystemStats,
+    SystemUnloadRequest,
+    SystemReloadRequest,
+    SystemActionResponse,
+    admin_system_stats,
+    admin_system_models,
+    admin_system_unload,
+    admin_system_reload,
+)
+
+
+@router.get("/system/stats", response_model=SystemStats)
+async def admin_sys_stats(admin: User = Depends(require_admin)):
+    return await admin_system_stats(admin=admin)
+
+
+@router.get("/system/models")
+async def admin_sys_models(admin: User = Depends(require_admin)):
+    return await admin_system_models(admin=admin)
+
+
+@router.post("/system/unload", response_model=SystemActionResponse)
+async def admin_sys_unload(body: SystemUnloadRequest, admin: User = Depends(require_admin)):
+    return await admin_system_unload(body=body, admin=admin)
+
+
+@router.post("/system/reload", response_model=SystemActionResponse)
+async def admin_sys_reload(body: SystemReloadRequest, admin: User = Depends(require_admin)):
+    return await admin_system_reload(body=body, admin=admin)

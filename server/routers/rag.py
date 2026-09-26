@@ -30,6 +30,7 @@ from .. import chat, config, files
 from ..auth_v2 import current_user
 from ..database import Chunk, Document, User, get_session
 from ..queue_manager import queue
+from ..services import model_gate
 from ..security import limiter
 
 router = APIRouter(prefix="/api/v2/rag", tags=["rag"])
@@ -111,7 +112,7 @@ def _mmr(candidates: list[dict], top_k: int, lambda_: float = 0.7) -> list[dict]
 async def _embed(text: str) -> list[float] | None:
     """Ollama embed API ile vektör üret."""
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with model_gate.internal(config.EMBED_MODEL), httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{config.OLLAMA_HOST}/api/embed",
                 # keep_alive: embedding modeli her sorguda yeniden YÜKLENMESİN
@@ -140,7 +141,7 @@ async def _embed_batch(texts: list[str]) -> list[list[float] | None]:
     if not texts:
         return []
     try:
-        async with httpx.AsyncClient(timeout=300) as client:
+        async with model_gate.internal(config.EMBED_MODEL), httpx.AsyncClient(timeout=300) as client:
             resp = await client.post(
                 f"{config.OLLAMA_HOST}/api/embed",
                 json={"model": config.EMBED_MODEL, "input": texts,
