@@ -1,18 +1,20 @@
-"""Model başına otomatik üretim ayarı (num_ctx / num_gpu).
+"""Model başına üretim ayarı (num_ctx / num_gpu) politikası.
 
-Her katalog modeli için Ollama'dan boyut + mimari bilgisi alınır ve GPU
-VRAM'iyle karşılaştırılır:
+Politika: VRAM'e sığmayan modelde BAĞLAMDAN DEĞİL HIZDAN ödün verilir.
+Agentic işler (OpenCode, Aider, orkestratör/coder) uzun bağlam ister; bağlamı
+küçültmek aracın dosyaları/geçmişi kaybetmesine yol açar. Sığmayan kısım
+Ollama tarafından RAM'e/CPU'ya taşınır — yavaşlar ama bağlam korunur.
 
-  1. Model + KV cache VRAM'e sığıyorsa      → override YOK (None; Ollama otomatiği)
-  2. Ağırlıklar sığıyor, KV sığmıyorsa       → num_ctx düşürülür (16k → 8k → 4k)
-  3. Ağırlıklar tek başına sığmıyorsa        → num_ctx=8192 + GPU'ya sığan katman
-     sayısı (num_gpu) hesaplanır → sürücünün "paylaşılan GPU belleği" taşması
-     yerine TEMİZ CPU offload (çok daha hızlı).
+Bu yüzden otomatik modda (tune_auto=True) katalogda HİÇBİR override tutulmaz:
+  * num_ctx → None: global ayar geçerli (sohbette NUM_CTX, /v1'de bağlantının
+    num_ctx'i veya API_NUM_CTX).
+  * num_gpu → None: GPU katman dağılımını Ollama yapar. Elle sabitlenen katman
+    sayısı MoE modellerde uzmanların CPU'ya dağıtımını bozuyor ve gpt-oss:120b'de
+    (num_gpu=6) llama-server'ı CUDA hatasıyla çökertiyordu; Ollama'nın kendi
+    dağılımı ölçümlerde %25-75 daha hızlı çıktı.
 
-Sonuçlar `models` tablosuna yazılır (yalnız tune_auto=True satırlar). Admin
-PATCH ile manuel değer verirse tune_auto=False olur ve bir daha dokunulmaz.
-
-VRAM tespiti: GPU_VRAM_MB env > nvidia-smi > (bulunamazsa tuning atlanır).
+Admin PATCH ile manuel değer verirse tune_auto=False olur ve o değer korunur
+(tek bir modele özel bağlam gerekiyorsa panelden verilebilir).
 """
 from __future__ import annotations
 
@@ -20,7 +22,6 @@ import logging
 import shutil
 import subprocess
 
-import httpx
 from sqlalchemy import select
 
 from .. import config
@@ -28,13 +29,10 @@ from ..database import ModelCatalog, async_session_maker
 
 log = logging.getLogger(__name__)
 
-_RUNNER_OVERHEAD_GB = 1.2   # Ollama runner + ara tamponlar + vision projektörü payı
-_VRAM_SAFETY = 0.92         # VRAM'in tamamını hedefleme (sürücü/kompozitör payı)
-_CTX_CANDIDATES = (16384, 8192, 4096)
-
 
 def detect_vram_mb() -> int:
-    """Toplam GPU VRAM (MB). Önce env, sonra nvidia-smi; bulunamazsa 0."""
+    """Toplam GPU VRAM (MB). Önce env, sonra nvidia-smi; bulunamazsa 0.
+    (Yalnız sistem izleme ekranında gösterim için.)"""
     if getattr(config, "GPU_VRAM_MB", 0) > 0:
         return config.GPU_VRAM_MB
     exe = shutil.which("nvidia-smi")
@@ -52,104 +50,26 @@ def detect_vram_mb() -> int:
     return 0
 
 
-def _find(info: dict, suffix: str):
-    """model_info anahtarları '<arch>.block_count' biçimindedir — sonekle bul."""
-    for k, v in info.items():
-        if k.endswith(suffix):
-            return v
-    return None
+async def auto_tune_models() -> int:
+    """tune_auto modellerin katalog override'larını temizler (bkz. modül notu).
 
-
-def _kv_gb(info: dict, n_ctx: int) -> float:
-    """KV cache tahmini (GB), f16 varsayımıyla (q8_0 açıksa gerçek ~yarısı —
-    güvenli tarafta kalınır)."""
-    block = _find(info, ".block_count")
-    emb = _find(info, ".embedding_length")
-    heads = _find(info, ".attention.head_count")
-    kv_heads = _find(info, ".attention.head_count_kv") or heads
-    if isinstance(kv_heads, (list, tuple)):
-        kv_heads = sum(kv_heads) / len(kv_heads) if kv_heads else heads
-    if isinstance(heads, (list, tuple)):
-        heads = sum(heads) / len(heads) if heads else 1
-    if not (isinstance(block, (int, float)) and isinstance(emb, (int, float)) and isinstance(heads, (int, float)) and isinstance(kv_heads, (int, float))):
-        return 2.0 * (n_ctx / 16384)  # mimari bilinmiyorsa kaba tahmin
-    if heads <= 0:
-        return 2.0 * (n_ctx / 16384)
-    head_dim = emb / heads
-    return float(2 * block * n_ctx * head_dim * kv_heads * 2) / 1e9  # K+V, 2 bayt
-
-
-async def auto_tune_models() -> None:
-    """Katalogdaki tune_auto modeller için num_ctx/num_gpu hesapla ve kaydet."""
-    vram_mb = detect_vram_mb()
-    if vram_mb <= 0:
-        log.info("VRAM belirlenemedi (GPU_VRAM_MB env verin) — model tuning atlandı")
-        return
-    usable_gb = (vram_mb / 1024.0) * _VRAM_SAFETY - _RUNNER_OVERHEAD_GB
-    if usable_gb <= 1.0:
-        return
-
-    # Diskteki model boyutları
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            r = await client.get(f"{config.OLLAMA_HOST}/api/tags")
-            r.raise_for_status()
-            sizes = {m["name"]: m.get("size", 0) for m in r.json().get("models", [])}
-    except Exception:
-        return  # Ollama kapalı — mevcut değerlere dokunma
-
+    Döndürür: temizlenen model sayısı.
+    """
+    cleared = 0
     async with async_session_maker() as db:
         rows = (await db.execute(select(ModelCatalog))).scalars().all()
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            for m in rows:
-                if not m.tune_auto:
-                    continue  # admin manuel ayarlamış — dokunma
-                size = sizes.get(m.ollama_name)
-                if not size:
-                    continue  # diskte yok
-                # Ağırlıkların bellek maliyeti ≈ dosya boyutu (+%5 tampon)
-                size_gb = (size / 1e9) * 1.05
-
-                info: dict = {}
-                try:
-                    rr = await client.post(f"{config.OLLAMA_HOST}/api/show",
-                                           json={"model": m.ollama_name, "name": m.ollama_name})
-                    if rr.status_code == 200:
-                        info = rr.json().get("model_info") or {}
-                except Exception:
-                    info = {}
-
-                new_ctx: int | None = None
-                new_gpu: int | None = None
-                base_ctx = config.NUM_CTX
-
-                if size_gb + _kv_gb(info, base_ctx) <= usable_gb:
-                    # 1) Tamamen sığıyor — override gereksiz, Ollama otomatiği en iyisi
-                    pass
-                elif size_gb <= usable_gb:
-                    # 2) Ağırlıklar sığıyor, KV sığmıyor — bağlamı küçült
-                    for cand in _CTX_CANDIDATES:
-                        if cand < base_ctx and size_gb + _kv_gb(info, cand) <= usable_gb:
-                            new_ctx = cand
-                            break
-                    if new_ctx is None:
-                        new_ctx = _CTX_CANDIDATES[-1]
-                else:
-                    # 3) Ağırlıklar sığmıyor — küçük bağlam + temiz katman offload'u
-                    new_ctx = min(base_ctx, 8192)
-                    block = _find(info, ".block_count")
-                    if block:
-                        frac = (usable_gb - _kv_gb(info, new_ctx)) / size_gb
-                        frac = max(0.05, min(1.0, frac))
-                        new_gpu = max(1, min(int(block), int(block * frac)))
-
-                if (m.num_ctx, m.num_gpu) != (new_ctx, new_gpu):
-                    m.num_ctx = new_ctx
-                    m.num_gpu = new_gpu
-                    log.info("Model auto-tune: %s → num_ctx=%s num_gpu=%s "
-                             "(boyut=%.1fGB, kullanılabilir VRAM=%.1fGB)",
-                             m.ollama_name, new_ctx, new_gpu, size_gb, usable_gb)
+        for m in rows:
+            if not m.tune_auto:
+                continue  # admin manuel ayarlamış — dokunma
+            if m.num_ctx is not None or m.num_gpu is not None:
+                log.info("Model auto-tune: %s → num_ctx=%s num_gpu=%s override'ı "
+                         "kaldırıldı (global ayar + Ollama otomatiği)",
+                         m.ollama_name, m.num_ctx, m.num_gpu)
+                m.num_ctx = None
+                m.num_gpu = None
+                cleared += 1
         await db.commit()
+    return cleared
 
 
 async def model_overrides(db, model_name: str) -> tuple[int | None, int | None]:

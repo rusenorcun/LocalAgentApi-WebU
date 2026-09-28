@@ -13,6 +13,7 @@ Guvenlik:
     kullanilir; hic uzak baglanti yoksa Yerel Ollama'ya (OLLAMA_HOST) duser.
   * OpenAI tools / tool_calls, cok parcali (list) content ve base64 gorseller
     Ollama formatina cevrilir (Strix, LiteLLM, OpenCode uyumu).
+  * Modelin dusunme metni (Ollama "thinking") reasoning_content olarak iletilir.
 
 Aider kullanim ornegi:
     aider --model openai/qwen3-coder:30b \
@@ -23,6 +24,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import time
 from typing import AsyncGenerator, Optional
 
 import httpx
@@ -309,6 +311,23 @@ async def _openai_chat_stream(
     client = httpx.AsyncClient(timeout=_OPENAI_TIMEOUT)
     idx = 0
     had_tools = False
+    role_sent = False
+
+    def _chunk(delta_dict: dict) -> str:
+        """Tek bir OpenAI delta parcasi; role yalnizca ilk parcada gider."""
+        nonlocal idx, role_sent
+        if not role_sent:
+            delta_dict = {"role": "assistant", **delta_dict}
+            role_sent = True
+        out = {
+            "id": f"chatcmpl-{conn['id']}-{idx}",
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": ollama_payload["model"],
+            "choices": [{"index": 0, "delta": delta_dict, "finish_reason": None}],
+        }
+        idx += 1
+        return f"data: {json.dumps(out, ensure_ascii=False)}\n\n"
 
     try:
         async with model_gate.api_use(ollama_payload["model"]), \
@@ -328,33 +347,21 @@ async def _openai_chat_stream(
                 except Exception:
                     continue
                 msg = chunk.get("message") or {}
-                delta = msg.get("content", "")
+                # Dusunme metni (gpt-oss, qwen3...) reasoning_content olarak gider:
+                # OpenCode/AI SDK bunu "dusunuyor" bolumunde gosterir ve uzun
+                # akil yurutme sirasinda da istemciye veri (ve basliklar) akar.
+                thinking = msg.get("thinking", "")
+                if thinking:
+                    yield _chunk({"reasoning_content": thinking})
                 tcs = _to_openai_tool_calls(msg.get("tool_calls"))
                 if tcs:
                     for j, tc in enumerate(tcs):
                         tc["index"] = j
-                    out = {
-                        "id": f"chatcmpl-{conn['id']}-{idx}",
-                        "object": "chat.completion.chunk",
-                        "created": 0,
-                        "model": ollama_payload["model"],
-                        "choices": [{"index": 0, "delta": {"role": "assistant", "tool_calls": tcs},
-                                     "finish_reason": None}],
-                    }
-                    yield f"data: {json.dumps(out, ensure_ascii=False)}\n\n"
-                    idx += 1
+                    yield _chunk({"tool_calls": tcs})
                     had_tools = True
+                delta = msg.get("content", "")
                 if delta:
-                    out = {
-                        "id": f"chatcmpl-{conn['id']}-{idx}",
-                        "object": "chat.completion.chunk",
-                        "created": 0,
-                        "model": ollama_payload["model"],
-                        "choices": [{"index": 0, "delta": {"content": delta},
-                                     "finish_reason": None}],
-                    }
-                    yield f"data: {json.dumps(out, ensure_ascii=False)}\n\n"
-                    idx += 1
+                    yield _chunk({"content": delta})
                 if chunk.get("done"):
                     # Son parca: finish_reason + usage. OpenCode/AI SDK gibi
                     # istemciler baglam/token gostergesini buradan okur.
@@ -363,7 +370,7 @@ async def _openai_chat_stream(
                     fin = {
                         "id": f"chatcmpl-{conn['id']}-{idx}",
                         "object": "chat.completion.chunk",
-                        "created": 0,
+                        "created": int(time.time()),
                         "model": ollama_payload["model"],
                         "choices": [{"index": 0, "delta": {},
                                      "finish_reason": "tool_calls" if had_tools else "stop"}],
@@ -397,12 +404,14 @@ async def _openai_chat_nonstream(
         content = msg.get("content", "")
         tool_calls = _to_openai_tool_calls(msg.get("tool_calls"))
         out_msg: dict = {"role": "assistant", "content": content}
+        if msg.get("thinking"):
+            out_msg["reasoning_content"] = msg["thinking"]
         if tool_calls:
             out_msg["tool_calls"] = tool_calls
         return {
             "id": f"chatcmpl-{conn['id']}",
             "object": "chat.completion",
-            "created": 0,
+            "created": int(time.time()),
             "model": ollama_payload["model"],
             "choices": [{
                 "index": 0,
@@ -423,6 +432,12 @@ async def openai_chat_completions(
     db: AsyncSession = Depends(get_session),
 ):
     """OpenAI /v1/chat/completions ucunu Ollama /api/chat'e cevir."""
+    if request.method == "OPTIONS":
+        from fastapi import Response
+        return Response(status_code=200)
+    if request.method == "GET":
+        return {"status": "ok"}
+
     body_bytes = await request.body()
     try:
         req = OpenAIChatRequest.model_validate_json(body_bytes)
@@ -535,7 +550,7 @@ async def openai_completions(
                         out = {
                             "id": f"cmpl-{conn['id']}-{idx}",
                             "object": "text_completion.chunk",
-                            "created": 0,
+                            "created": int(time.time()),
                             "model": req.model,
                             "choices": [{
                                 "index": 0,
@@ -563,7 +578,7 @@ async def openai_completions(
         return {
             "id": f"cmpl-{conn['id']}",
             "object": "text_completion",
-            "created": 0,
+            "created": int(time.time()),
             "model": req.model,
             "choices": [{
                 "index": 0,

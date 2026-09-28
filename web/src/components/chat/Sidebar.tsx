@@ -239,8 +239,8 @@ function ChatItem({ c, active, renaming, renameVal, onRenameChange, onRenameComm
           {selected && <div className="w-2 h-2 bg-[var(--surface)] rounded-sm" />}
         </div>
       )}
-      {!multiSelectMode && c.pinned && <Pin size={12} className="mr-1.5 shrink-0" style={{ color: 'var(--accent)' }} />}
-      <span className="text-sm truncate flex-1">{c.title}</span>
+      {!multiSelectMode && c.pinned && <Pin size={12} className="mr-1.5 shrink-0 pointer-events-none" style={{ color: 'var(--accent)' }} />}
+      <span className="text-sm truncate flex-1 pointer-events-none">{c.title}</span>
       {!multiSelectMode && (
         <div className="relative hidden group-hover:flex items-center ml-1">
           <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}

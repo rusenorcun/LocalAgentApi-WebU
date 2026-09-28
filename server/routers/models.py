@@ -294,19 +294,12 @@ async def admin_delete_model(
 
 @router.post("/admin/retune")
 async def admin_retune(admin: User = Depends(require_admin)):
-    """Model bazlı otomatik ayarları (num_ctx/num_gpu) yeniden hesaplar.
-
-    Yeni model indirdikten veya GPU/global ayar değiştirdikten sonra çağırın.
-    Yalnız tune_auto=True modeller güncellenir."""
-    from ..services.model_tuner import auto_tune_models, detect_vram_mb
-    vram = detect_vram_mb()
-    if vram <= 0:
-        raise HTTPException(
-            status_code=422,
-            detail="VRAM tespit edilemedi — GPU_VRAM_MB ortam değişkenini ayarlayın",
-        )
-    await auto_tune_models()
-    return {"retuned": True, "vram_mb": vram}
+    """Otomatik moddaki (tune_auto=True) modellerin katalog override'larını
+    temizler: bağlam global ayardan gelir, GPU dağılımını Ollama yapar.
+    Manuel ayarlanmış modellere dokunulmaz (bkz. services/model_tuner.py)."""
+    from ..services.model_tuner import auto_tune_models
+    cleared = await auto_tune_models()
+    return {"retuned": True, "cleared": cleared}
 
 
 # ── Ollama sistem yönetimi (admin) ────────────────────────────────────────────
@@ -334,7 +327,7 @@ async def admin_pull(name: str = Body(..., embed=True), admin: User = Depends(re
         try:
             async for ev in chat.pull_model_stream(name):
                 yield _sse(ev)
-            # İndirme bitti — yeni modelin num_ctx/num_gpu ayarını otomatik hesapla
+            # İndirme bitti — otomatik moddaki modellerde override kalmasın
             try:
                 from ..services.model_tuner import auto_tune_models
                 await auto_tune_models()
@@ -451,25 +444,115 @@ async def admin_system_models(admin: User = Depends(require_admin)):
 
 @router.post("/admin/system/unload", response_model=SystemActionResponse)
 async def admin_system_unload(body: SystemUnloadRequest, admin: User = Depends(require_admin)):
-    """Modeli Bellekten boşalt (keep_alive=0)."""
+    """Modeli bellekten boşalt (keep_alive=0) ve /api/ps'ten düşmesini bekle."""
+    import asyncio
     import httpx
+    from ..services import model_gate
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.post(
-                f"{config.OLLAMA_HOST}/api/generate",
-                json={"model": body.model, "keep_alive": 0}
-            )
-            if r.status_code == 200:
-                return {"ok": True}
-            # Embedding modelleri için dene
-            await client.post(
-                f"{config.OLLAMA_HOST}/api/embed",
-                json={"model": body.model, "input": []}
-            )
-        return {"ok": True}
+            await model_gate._unload(client, body.model)
+            # Ollama boşaltmayı arka planda yapar; panel yenilendiğinde model
+            # hâlâ listede görünmesin diye düşene kadar kısa süre bekle.
+            target = model_gate._norm(body.model)
+            for _ in range(20):
+                loaded = await model_gate._loaded_models(client)
+                if loaded is None or target not in {model_gate._norm(n) for n in loaded}:
+                    return {"ok": True}
+                await asyncio.sleep(0.5)
+        busy = model_gate._norm(body.model) in model_gate.stats()["api_models"]
+        return {"ok": False, "note": "Model şu an bir istek tarafından kullanılıyor; istek bitince boşalacak."
+                if busy else "Model 10 sn içinde bellekten düşmedi; biraz sonra tekrar deneyin."}
     except Exception as e:
         log.warning("Model boşaltılamadı: %s - %s", body.model, e)
         return {"ok": False, "note": str(e)}
+
+
+class BenchmarkRequest(BaseModel):
+    model: str = Field(min_length=1)
+    num_predict: int = Field(default=256, ge=32, le=2048)
+    unload_after: bool = True
+
+
+_BENCH_PROMPT = (
+    "Explain step by step how a hash map works internally: hashing, buckets, "
+    "collision handling (chaining vs open addressing), load factor and resizing. "
+    "Then write a minimal Python implementation with get/put/delete."
+)
+
+
+@router.post("/admin/benchmark")
+async def admin_benchmark(body: BenchmarkRequest, admin: User = Depends(require_admin),
+                          db: AsyncSession = Depends(get_session)):
+    """Modelin gerçek token/s hızını ölç (Ollama'nın kendi sayaçlarıyla).
+
+    Sohbetteki gerçek ayarlar kullanılır (katalog num_ctx/num_gpu, yoksa NUM_CTX).
+    Büyük model sırasına (model_gate) girer; bittiğinde istenirse model boşaltılır.
+    """
+    import time
+    import httpx
+    from ..services import model_gate
+    from ..services.model_tuner import model_overrides
+
+    host = config.OLLAMA_HOST
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, read=900.0)) as client:
+        # Embedding modelleri metin üretemez — atla.
+        try:
+            r = await client.post(f"{host}/api/show", json={"model": body.model})
+            caps = (r.json().get("capabilities") or []) if r.status_code == 200 else []
+        except Exception:
+            caps = []
+        if caps and "completion" not in caps:
+            return {"model": body.model, "ok": False, "skipped": True,
+                    "note": "Metin üretmeyen model (embedding) — test edilmedi."}
+
+        ctx, gpu = await model_overrides(db, body.model)
+        options = {"num_ctx": ctx or config.NUM_CTX, "num_predict": body.num_predict,
+                   "temperature": 0, "seed": 42}
+        if gpu:
+            options["num_gpu"] = gpu
+        payload = {"model": body.model, "stream": False, "options": options,
+                   "keep_alive": "5m",
+                   "messages": [{"role": "user", "content": _BENCH_PROMPT}]}
+
+        async with model_gate.internal(body.model):
+            t0 = time.perf_counter()
+            try:
+                r = await client.post(f"{host}/api/chat", json=payload)
+            except httpx.TimeoutException:
+                return {"model": body.model, "ok": False, "note": "Zaman aşımı (15 dk)."}
+            wall = time.perf_counter() - t0
+            if r.status_code != 200:
+                return {"model": body.model, "ok": False,
+                        "note": f"Ollama hatası {r.status_code}: {r.text[:200]}"}
+            d = r.json()
+            # Yükleme sonrası GPU/CPU dağılımı (keep_alive=0 olsa da yanıt anında listede)
+            size = size_vram = 0
+            try:
+                ps = (await client.get(f"{host}/api/ps")).json().get("models", [])
+                row = next((m for m in ps if model_gate._norm(m.get("name")) == model_gate._norm(body.model)), None)
+                if row:
+                    size, size_vram = row.get("size", 0), row.get("size_vram", 0)
+            except Exception:
+                pass
+            if body.unload_after:
+                await model_gate._unload(client, body.model)
+
+    ns = 1e9
+    ev_n, ev_d = d.get("eval_count", 0), d.get("eval_duration", 0)
+    pe_n, pe_d = d.get("prompt_eval_count", 0), d.get("prompt_eval_duration", 0)
+    return {
+        "model": body.model,
+        "ok": True,
+        "gen_tps": round(ev_n / (ev_d / ns), 1) if ev_d else None,        # üretim hızı
+        "prompt_tps": round(pe_n / (pe_d / ns), 1) if pe_d else None,     # prompt işleme hızı
+        "eval_count": ev_n,
+        "prompt_eval_count": pe_n,
+        "load_s": round(d.get("load_duration", 0) / ns, 2),
+        "total_s": round(wall, 2),
+        "num_ctx": options["num_ctx"],
+        "num_gpu": options.get("num_gpu"),
+        "gpu_pct": round(size_vram / size * 100) if size else None,
+    }
 
 
 @router.post("/admin/system/reload", response_model=SystemActionResponse)

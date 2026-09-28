@@ -182,12 +182,12 @@ export default function PanelLayout() {
                     background: isActive ? 'var(--accent-soft)' : 'transparent',
                     color: isActive ? 'var(--text)' : 'var(--text-2)',
                   }}>
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 rounded-[3px]"
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 rounded-[3px] pointer-events-none"
                         style={{ width: 3, height: 18, background: 'var(--grad)', opacity: isActive ? 1 : 0 }} />
-                  <Icon size={18} className="shrink-0" />
-                  <span className="flex-1">{it.label}</span>
+                  <Icon size={18} className="shrink-0 pointer-events-none" />
+                  <span className="flex-1 pointer-events-none">{it.label}</span>
                   {isChatItem && (
-                    <ChevronDown size={14} className="hidden md:block shrink-0" style={{
+                    <ChevronDown size={14} className="hidden md:block shrink-0 pointer-events-none" style={{
                       color: 'var(--text-3)',
                       transform: chatListOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                       transition: 'transform .2s',

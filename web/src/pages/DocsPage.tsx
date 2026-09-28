@@ -392,7 +392,7 @@ async def yeni_arac(istem: str, baglam: str = "") -> str:
                   ['GET /models/admin/status', 'Diskte + bellekte yüklü Ollama modelleri'],
                   ['POST /models/admin/pull', 'Ollama\'dan model indir (SSE ilerleme)'],
                   ['POST /models/admin/uninstall', 'Diskten model sil'],
-                  ['POST /models/admin/retune', 'Otomatik hız/VRAM ayarını yeniden hesapla'],
+                  ['POST /models/admin/retune', 'Otomatik moddaki modellerin num_ctx/num_gpu ayarlarını temizle'],
                 ]} />
 
                 <H3>admin</H3>

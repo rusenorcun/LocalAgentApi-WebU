@@ -36,16 +36,16 @@ export default function SettingsPage() {
               color: active === tab.id ? 'var(--text)' : 'var(--text-2)',
               cursor: 'pointer',
             }}>
-            <tab.icon size={15} />
-            {t(tab.key)}
+            <tab.icon size={15} className="pointer-events-none" />
+            <span className="pointer-events-none">{t(tab.key)}</span>
           </button>
         ))}
         {role === 'admin' && (
           <button onClick={() => navigate('/admin/settings')}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-[var(--surface-2)]"
             style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer' }}>
-            <Server size={15} />
-            Sunucu
+            <Server size={15} className="pointer-events-none" />
+            <span className="pointer-events-none">Sunucu</span>
           </button>
         )}
       </nav>

@@ -152,7 +152,7 @@ class ModelCatalog(Base):
     internal = Column(Boolean, nullable=False, default=False)     # kullanıcıya gösterilmez
     supports_tools = Column(Boolean, nullable=False, default=False)  # /api/show ile dinamik
     # Model bazlı üretim ayarları (None = global config değeri kullanılır).
-    # tune_auto=True iken başlangıçta VRAM'e göre otomatik hesaplanır
+    # tune_auto=True iken override tutulmaz (global ayar + Ollama otomatiği)
     # (services/model_tuner.py); admin manuel değer verirse tune_auto=False olur.
     num_ctx = Column(Integer, nullable=True)
     num_gpu = Column(Integer, nullable=True)
@@ -373,7 +373,7 @@ async def init_db() -> None:
     await _seed_model_catalog()
     await _sync_default_model()
     await _update_tool_capabilities()
-    # Model bazlı otomatik num_ctx/num_gpu hesabı (VRAM'e göre)
+    # Otomatik moddaki modellerde num_ctx/num_gpu override'ı tutulmaz (bkz. model_tuner)
     try:
         from .services.model_tuner import auto_tune_models
         await auto_tune_models()

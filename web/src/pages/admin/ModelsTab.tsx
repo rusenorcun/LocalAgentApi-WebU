@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, X, Check, Download, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Download, Star, PowerOff, Gauge, Loader2 } from 'lucide-react'
 import { api } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 
@@ -55,6 +55,44 @@ export default function ModelsTab() {
       qc.invalidateQueries({ queryKey: ['admin', 'models'] })
     },
   })
+  // ── Bellekten çıkar ──
+  const [unloading, setUnloading] = useState<string | null>(null)
+  const [unloadNote, setUnloadNote] = useState<string | null>(null)
+  const unloadModel = async (name: string) => {
+    setUnloading(name)
+    setUnloadNote(null)
+    try {
+      const r = await api.post('/api/v2/admin/system/unload', { model: name }).then(r => r.data)
+      if (!r.ok) setUnloadNote(`${name}: ${r.note || 'boşaltılamadı'}`)
+    } catch (e: any) {
+      setUnloadNote(`${name}: ${e?.response?.data?.detail || 'istek başarısız'}`)
+    } finally {
+      setUnloading(null)
+      qc.invalidateQueries({ queryKey: ['admin', 'ollama-status'] })
+    }
+  }
+
+  // ── Hız testi (token/s) ──
+  const [bench, setBench] = useState<Record<string, any>>({})
+  const [benchRunning, setBenchRunning] = useState<string | null>(null)
+  const runBench = async (name: string) => {
+    setBenchRunning(name)
+    setBench(b => ({ ...b, [name]: { pending: true } }))
+    try {
+      const r = await api.post('/api/v2/models/admin/benchmark', { model: name }, { timeout: 0 }).then(r => r.data)
+      setBench(b => ({ ...b, [name]: r }))
+    } catch (e: any) {
+      setBench(b => ({ ...b, [name]: { ok: false, note: e?.response?.data?.detail || 'istek başarısız' } }))
+    } finally {
+      setBenchRunning(null)
+      qc.invalidateQueries({ queryKey: ['admin', 'ollama-status'] })
+    }
+  }
+  const runBenchAll = async () => {
+    // Sırayla: aynı anda iki büyük model yüklenirse ölçüm bozulur.
+    for (const m of (statusQ.data?.installed || [])) await runBench(m.name)
+  }
+
   const fmtBytes = (b: number) =>
     b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(0) + ' MB' : (b / 1e3).toFixed(0) + ' KB'
   // accessToken artık localStorage'da değil, yalnızca store belleğinde (bkz. authStore.ts G2) —
@@ -124,10 +162,22 @@ export default function ModelsTab() {
           (statusQ.data?.running || []).map((m: any) => (
             <div key={m.name} className="flex items-center justify-between text-xs mb-1">
               <span style={{ color: 'var(--text)' }}>{m.name}</span>
-              <span style={{ color: 'var(--text-3)' }}>{fmtBytes(m.size_vram)} VRAM · {fmtBytes(m.size)}</span>
+              <div className="flex items-center gap-2">
+                <span style={{ color: 'var(--text-3)' }}>
+                  {fmtBytes(m.size_vram)} VRAM · {fmtBytes(m.size)}
+                  {m.size > 0 && m.size_vram < m.size && ` · %${Math.round(m.size_vram / m.size * 100)} GPU`}
+                </span>
+                <button onClick={() => unloadModel(m.name)} disabled={unloading === m.name}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-[var(--surface-2)] disabled:opacity-50"
+                  style={{ color: 'var(--error)', border: '1px solid var(--border)' }} title="Modeli bellekten çıkar">
+                  {unloading === m.name ? <Loader2 size={12} className="animate-spin" /> : <PowerOff size={12} />}
+                  Bellekten çıkar
+                </button>
+              </div>
             </div>
           ))
         )}
+        {unloadNote && <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{unloadNote}</p>}
 
         <p className="text-[11px] font-medium uppercase tracking-wider mt-3 mb-1" style={{ color: 'var(--text-3)' }}>Diskte yüklü</p>
         <div className="space-y-1">
@@ -136,6 +186,10 @@ export default function ModelsTab() {
               <span style={{ color: 'var(--text)' }}>{m.name}</span>
               <div className="flex items-center gap-2">
                 <span style={{ color: 'var(--text-3)' }}>{fmtBytes(m.size)}</span>
+                <button onClick={() => runBench(m.name)} disabled={!!benchRunning}
+                  className="p-1 rounded hover:bg-[var(--surface-2)] disabled:opacity-40" style={{ color: 'var(--accent)' }} title="Hız testi (token/s)">
+                  {benchRunning === m.name ? <Loader2 size={12} className="animate-spin" /> : <Gauge size={12} />}
+                </button>
                 <button onClick={() => { if (confirm(`${m.name} diskten silinsin mi?`)) uninstall.mutate(m.name) }}
                   className="p-1 rounded hover:bg-[var(--surface-2)]" style={{ color: 'var(--error)' }} title="Sil">
                   <Trash2 size={12} />
@@ -157,6 +211,61 @@ export default function ModelsTab() {
           </button>
         </div>
         {pullStatus && <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>{pullStatus}</p>}
+
+        {/* Hız testi */}
+        <div className="flex items-center justify-between mt-4 mb-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Hız testi (token/s)</p>
+          <button onClick={runBenchAll} disabled={!!benchRunning}
+            className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
+            style={{ border: '1px solid var(--accent)', color: 'var(--accent)' }}>
+            {benchRunning ? <Loader2 size={12} className="animate-spin" /> : <Gauge size={12} />}
+            {benchRunning ? `Test ediliyor: ${benchRunning}` : 'Tüm modelleri test et'}
+          </button>
+        </div>
+        <p className="text-[11px] mb-2" style={{ color: 'var(--text-3)' }}>
+          Sabit bir istemle 256 token üretilir; hız Ollama'nın kendi sayaçlarından (eval_count / eval_duration) hesaplanır.
+          Sohbetteki num_ctx ayarı kullanılır, GPU katman dağılımını Ollama yapar, model test sonrası bellekten çıkarılır. Modeller sırayla test edilir.
+        </p>
+        {Object.keys(bench).length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ color: 'var(--text-3)' }} className="text-left">
+                  <th className="py-1 pr-3 font-medium">Model</th>
+                  <th className="py-1 pr-3 font-medium">Üretim</th>
+                  <th className="py-1 pr-3 font-medium">Prompt</th>
+                  <th className="py-1 pr-3 font-medium">Yükleme</th>
+                  <th className="py-1 pr-3 font-medium">Toplam</th>
+                  <th className="py-1 pr-3 font-medium">GPU</th>
+                  <th className="py-1 font-medium">ctx</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(bench).map(([name, r]) => (
+                  <tr key={name} style={{ borderTop: '1px solid var(--border)', color: 'var(--text)' }}>
+                    <td className="py-1 pr-3">{name}</td>
+                    {r.pending ? (
+                      <td colSpan={6} className="py-1" style={{ color: 'var(--text-3)' }}>çalışıyor…</td>
+                    ) : !r.ok ? (
+                      <td colSpan={6} className="py-1" style={{ color: r.skipped ? 'var(--text-3)' : 'var(--error)' }}>{r.note}</td>
+                    ) : (
+                      <>
+                        <td className="py-1 pr-3 font-semibold">{r.gen_tps ?? '—'} t/s</td>
+                        <td className="py-1 pr-3">{r.prompt_tps ?? '—'} t/s</td>
+                        <td className="py-1 pr-3">{r.load_s} sn</td>
+                        <td className="py-1 pr-3">{r.total_s} sn</td>
+                        <td className="py-1 pr-3" style={{ color: r.gpu_pct != null && r.gpu_pct < 100 ? 'var(--warning, #f5a623)' : undefined }}>
+                          {r.gpu_pct != null ? `%${r.gpu_pct}` : '—'}
+                        </td>
+                        <td className="py-1">{r.num_ctx}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Katalog */}
