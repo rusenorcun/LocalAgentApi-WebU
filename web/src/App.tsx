@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import axios from 'axios'
 import { useAuthStore } from './store/authStore'
@@ -6,18 +6,45 @@ import { useTheme } from './hooks/useTheme'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 
+// Yeniden derlemeden (deploy) sonra acik kalan sekme eski chunk adlarini ister
+// ve 404 alir ("Failed to fetch dynamically imported module"). Boyle bir hatada
+// sayfa bir kez yenilenir; yeni index.html guncel chunk adlarini getirir.
+// Dongu olmasin diye son 10 sn icinde zaten yenilendiyse (veya sessionStorage
+// kullanilamiyorsa) hata ErrorBoundary'e birakilir.
+const CHUNK_RELOAD_KEY = 'chunk-reload-at'
+
+function reloadOnceForStaleChunk(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY)) || 0
+    if (Date.now() - last < 10_000) return false
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()))
+  } catch {
+    return false
+  }
+  window.location.reload()
+  return true
+}
+
+function lazyPage<T extends ComponentType<any>>(load: () => Promise<{ default: T }>) {
+  return lazy(() => load().catch((err) => {
+    // Yenileme surerken Suspense yedegi ekranda kalsin (hata sayfasi yanip sonmesin)
+    if (reloadOnceForStaleChunk()) return new Promise<never>(() => {})
+    throw err
+  }))
+}
+
 // Route-level code splitting: her sayfa kendi chunk'inda yuklenir. Ana paket
 // kuculur (KaTeX/highlight gibi agir bagimliliklar yalnizca ilgili sayfada
 // indirilir). Landing/Login ilk boyama icin eager kalir.
-const ChatPage = lazy(() => import('./pages/ChatPage'))
-const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
-const AdminPage = lazy(() => import('./pages/admin/AdminPage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const DocsPage = lazy(() => import('./pages/DocsPage'))
-const PanelLayout = lazy(() => import('./layouts/PanelLayout'))
-const OverviewPage = lazy(() => import('./pages/panel/OverviewPage'))
-const McpServerPage = lazy(() => import('./pages/panel/McpServerPage'))
-const ApiKeysPage = lazy(() => import('./pages/panel/ApiKeysPage'))
+const ChatPage = lazyPage(() => import('./pages/ChatPage'))
+const OnboardingPage = lazyPage(() => import('./pages/OnboardingPage'))
+const AdminPage = lazyPage(() => import('./pages/admin/AdminPage'))
+const SettingsPage = lazyPage(() => import('./pages/SettingsPage'))
+const DocsPage = lazyPage(() => import('./pages/DocsPage'))
+const PanelLayout = lazyPage(() => import('./layouts/PanelLayout'))
+const OverviewPage = lazyPage(() => import('./pages/panel/OverviewPage'))
+const McpServerPage = lazyPage(() => import('./pages/panel/McpServerPage'))
+const ApiKeysPage = lazyPage(() => import('./pages/panel/ApiKeysPage'))
 
 function PageFallback() {
   return (

@@ -102,7 +102,9 @@ async def spa(full_path: str):
         if candidate.is_file():
             return FileResponse(candidate)
     if _INDEX.is_file():
-        return FileResponse(_INDEX)
+        # index.html onbellekte bayat kalmasin: her derlemede chunk adlari
+        # degisir, eski index eski (artik olmayan) chunk'lari ister.
+        return FileResponse(_INDEX, headers={"Cache-Control": "no-cache"})
     raise HTTPException(
         status_code=503,
         detail="Arayuz build edilmemis.",
